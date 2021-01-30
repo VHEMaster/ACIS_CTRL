@@ -9,6 +9,7 @@
 #ifndef XCOMMAND_H_
 #define XCOMMAND_H_
 
+#include "main.h"
 #include "cmsis_os.h"
 #include "xProFIFO.h"
 #include "FreeRTOS.h"
@@ -27,12 +28,12 @@ typedef enum {
     etrCount
 } eTransChannels;
 
-extern sProFIFO fifoAcisRx;
-extern sProFIFO fifoAcisTx;
-extern sProFIFO fifoPcRx;
-extern sProFIFO fifoPcTx;
-extern void initFIFOs(void);
-extern void xGetter(void * arg);
-extern uint8_t xSender(eTransChannels xChaDest, uint8_t* xMsgPtr, uint32_t xMsgLen);
+extern void xFifosInit(void);
+extern void xGetterTask(void * arg);
+extern void xGetterInit(void);
+extern void xGetterLoop(void);
+extern void xDmaTxIrqHandler(UART_HandleTypeDef *huart);
+extern void xDmaErIrqHandler(UART_HandleTypeDef *huart);
+extern int8_t xSender(eTransChannels xChaDest, uint8_t* xMsgPtr, uint32_t xMsgLen);
 
 #endif /* XCOMMAND_H_ */

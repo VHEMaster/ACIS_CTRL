@@ -18,12 +18,13 @@ static inline void lcd_data(uint8_t value)
   HAL_GPIO_WritePin(LCD_RW_GPIO_Port, LCD_RW_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LCD_RS_GPIO_Port, LCD_RS_Pin, GPIO_PIN_SET);
   GPIOA->BSRR = bsrr;
-  DelayNs(1300);
+  DelayUs(2);
   taskENTER_CRITICAL();
   HAL_GPIO_WritePin(LCD_EN_GPIO_Port, LCD_EN_Pin, GPIO_PIN_SET);
-  DelayNs(1300);
+  DelayUs(2);
   HAL_GPIO_WritePin(LCD_EN_GPIO_Port, LCD_EN_Pin, GPIO_PIN_RESET);
   taskEXIT_CRITICAL();
+  DelayUs(1);
 }
 
 static inline void lcd_command(uint8_t value)
@@ -33,12 +34,13 @@ static inline void lcd_command(uint8_t value)
   HAL_GPIO_WritePin(LCD_RW_GPIO_Port, LCD_RW_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LCD_RS_GPIO_Port, LCD_RS_Pin, GPIO_PIN_RESET);
   GPIOA->BSRR = bsrr;
-  DelayNs(1300);
+  DelayUs(2);
   taskENTER_CRITICAL();
   HAL_GPIO_WritePin(LCD_EN_GPIO_Port, LCD_EN_Pin, GPIO_PIN_SET);
-  DelayNs(1300);
+  DelayUs(2);
   HAL_GPIO_WritePin(LCD_EN_GPIO_Port, LCD_EN_Pin, GPIO_PIN_RESET);
   taskEXIT_CRITICAL();
+  DelayUs(1);
 }
 
 inline void lcd_update(void)

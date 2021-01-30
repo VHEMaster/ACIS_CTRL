@@ -72,12 +72,11 @@ static const osThreadAttr_t defaultTask_attributes = {
   .stack_size = 512 * 4
 };
 
-osThreadId_t getterPcTaskHandle;
-osThreadId_t getterAcisTaskHandle;
+osThreadId_t getterTaskHandle;
 static const osThreadAttr_t getterTask_attributes = {
   .name = "getterDefaultTask",
   .priority = (osPriority_t) osPriorityHigh,
-  .stack_size = 512 * 4
+  .stack_size = 2048 * 4
 };
 /* USER CODE BEGIN PV */
 
@@ -103,6 +102,16 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef * htim)
   }
 }
 
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+  xDmaTxIrqHandler(huart);
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+  xDmaErIrqHandler(huart);
+}
+
 static void showlogo(void)
 {
   font_setFont(&rre_ubuntu_32);
@@ -116,6 +125,9 @@ static void showlogo(void)
 
 int main(void)
 {
+  SCB_EnableICache();
+  SCB_EnableDCache();
+
   HAL_Init();
 
   SystemClock_Config();
@@ -129,9 +141,11 @@ int main(void)
   MX_USART3_UART_Init();
   MX_CRC_Init();
   MX_TIM7_Init();
-  initFIFOs();
+  xFifosInit();
 
   CRC16_RegisterHardware(&hcrc);
+
+  HAL_GPIO_WritePin(USB_RST_GPIO_Port, USB_RST_Pin, GPIO_PIN_SET);
 
   DelayInit();
 
@@ -144,9 +158,7 @@ int main(void)
   osKernelInitialize();
 
   defaultTaskHandle = osThreadNew(acis_main_task, NULL, &defaultTask_attributes);
-  getterPcTaskHandle = osThreadNew(xGetter, (void*)etrPC, &getterTask_attributes);
-  getterAcisTaskHandle = osThreadNew(xGetter, (void*)etrACIS, &getterTask_attributes);
-
+  getterTaskHandle = osThreadNew(xGetterTask, NULL, &getterTask_attributes);
   osKernelStart();
 
   while (1)
@@ -210,6 +222,8 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+
+  HAL_SetTickFreq(HAL_TICK_FREQ_10KHZ);
 }
 
 /**

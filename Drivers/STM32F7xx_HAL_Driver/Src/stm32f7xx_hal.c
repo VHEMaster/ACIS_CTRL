@@ -73,7 +73,7 @@
   */
 __IO uint32_t uwTick;
 uint32_t uwTickPrio   = (1UL << __NVIC_PRIO_BITS); /* Invalid PRIO */
-HAL_TickFreqTypeDef uwTickFreq = HAL_TICK_FREQ_DEFAULT;  /* 1KHz */
+HAL_TickFreqTypeDef uwTickFreq = HAL_TICK_FREQ_DEFAULT;  /* 10KHz */
 /**
   * @}
   */
@@ -230,8 +230,8 @@ __weak void HAL_MspDeInit(void)
   */
 __weak HAL_StatusTypeDef HAL_InitTick(uint32_t TickPriority)
 {
-  /* Configure the SysTick to have interrupt in 1ms time basis*/
-  if (HAL_SYSTICK_Config(SystemCoreClock / (1000U / uwTickFreq)) > 0U)
+  /* Configure the SysTick to have interrupt in 0.1ms time basis*/
+  if (HAL_SYSTICK_Config(SystemCoreClock / (10000U / uwTickFreq)) > 0U)
   {
     return HAL_ERROR;
   }

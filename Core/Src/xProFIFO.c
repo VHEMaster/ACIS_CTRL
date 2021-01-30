@@ -120,17 +120,13 @@ uint8_t protPush(sProFIFO* fifo, void* xData) {
 
 uint8_t protPull(sProFIFO* fifo, void* xDest) {
     uint8_t retval;
-    xSemaphoreTake(fifo->info.lock, portMAX_DELAY);
         retval=interPull(fifo,xDest);
-    xSemaphoreGive(fifo->info.lock);
     return retval;
 }
 
 void protLook(sProFIFO* fifo, uint32_t xOffset, void* xDest) {
-    xSemaphoreTake(fifo->info.lock, portMAX_DELAY);
         uint32_t aIndex = infoCorrect(&fifo->info, &fifo->info.read, xOffset);
         interLook(fifo,aIndex,xDest);
-    xSemaphoreGive(fifo->info.lock);
 }
 
 void protMoveWrite(sProFIFO* fifo, uint32_t amove) { protMovePar(&fifo->info, &fifo->info.write, amove); }
