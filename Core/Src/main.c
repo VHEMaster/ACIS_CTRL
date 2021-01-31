@@ -238,6 +238,7 @@ static void MX_CRC_Init(void)
 
   /* USER CODE END CRC_Init 0 */
 
+  __HAL_RCC_CRC_CLK_ENABLE();
   /* USER CODE BEGIN CRC_Init 1 */
 
   /* USER CODE END CRC_Init 1 */

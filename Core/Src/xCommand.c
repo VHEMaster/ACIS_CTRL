@@ -45,7 +45,7 @@ static inline void exitcritical(void)
 #endif
 
 #define UART_DMA_BUFFER (MAX_PACK_LEN * 2)
-#define RETRIES_TIMEOUT 1000
+#define RETRIES_TIMEOUT 5000
 #define RETRIES_MAX 20
 
 typedef struct
@@ -75,6 +75,10 @@ static volatile uint16_t NeedAckPacket = 0;
 static volatile uint16_t ReceivedAckPacket = 1;
 static volatile uint16_t NeededAckPacketId = 0;
 static volatile uint32_t LastNotAckedTime = 0;
+
+volatile uint32_t time1 = 0;
+volatile uint32_t time2 = 0;
+
 
 static sGetterHandle xHandles[] = {
     {{0},{0},{0},{0},{0},{0}, &huart1, etrACIS },
@@ -203,7 +207,7 @@ static inline void acker(sGetterHandle* xHandle, uint16_t aPacketId, eTransChann
             xHandle->TxBusy = 1;
             handled = 1;
             taskEXIT_CRITICAL();
-            memcpy(&xHandle->BufTx[0],header,8);
+            memcpy(xHandle->BufTx,header,8);
             CacheClean(xHandle->BufTx, 8);
             HAL_UART_Transmit_DMA(xHandle->xUart, xHandle->BufTx, 8);
           }
@@ -273,6 +277,7 @@ int8_t xSender(eTransChannels xChaDest, uint8_t* xMsgPtr, uint32_t xMsgLen)
       RetriesPacket = 0;
       taskEXIT_CRITICAL();
       NeededAckPacketId = calculatePacketId();
+      time1 = Delay_Tick;
       packager(handle, xMsgPtr, xMsgLen, xChaDest, NeededAckPacketId);
     }
   }
@@ -289,7 +294,7 @@ static inline void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen
 	uint8_t header[8];
   for(int i = 0; i < sizeof(xHandles) / sizeof(xHandles[0]); i++)
   {
-    if(xHandles[i].xChannel == xChaDest)
+    if(xHandles[i].xChannel == xChaSrc)
     {
       hDest = &xHandles[i];
       break;
@@ -333,6 +338,7 @@ static inline void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen
                 taskENTER_CRITICAL();
                 if(NeedAckPacket && NeededAckPacketId != 0 && NeededAckPacketId == xPacketId && !ReceivedAckPacket)
                 {
+                  time2 = DelayDiff(Delay_Tick, time1);
                   ReceivedAckPacket = 1;
                 }
                 taskEXIT_CRITICAL();
@@ -411,7 +417,7 @@ static inline uint8_t countCRC8(sGetterHandle * handle) {
 static inline int32_t countCRC16(sGetterHandle * handle, uint32_t xLen) {
     uint32_t i; int32_t aCrc16 = 0;
     for (i=0; i<xLen-2; i++) { handle->BufParser[i] = lookByte(&handle->xRxFifo,i); }
-    aCrc16 = CRC8_Generate(handle->BufParser, xLen-2);
+    aCrc16 = CRC16_Generate(handle->BufParser, xLen-2);
     return aCrc16;
 }
 
@@ -449,25 +455,21 @@ static void Getter(sGetterHandle * handle)
       {
         if (countCRC8(handle) == lookByte(xFifo,7))
         {
-            if (lookByte(xFifo,0) < HEADER_MASK_BITS)
-            {
-                dataLen = lookByte(xFifo,3) + (lookByte(xFifo,4) << 8);
-                packetId = lookByte(xFifo,5) + (lookByte(xFifo,6) << 8);
-                if (packetId > 0 && dataLen < MAX_PACK_LEN)
-                {
-                    if (dataLen>10)
-                    {
-                      dataReceiving = 1;
-                    }
-                    else
-                    {
-                        // Got ShortPackage (Header Only)
-                        parser(xFifo,packetId,0,Msg_GetSrc(lookByte(xFifo,2)),Msg_GetDest(lookByte(xFifo,2)));
-                    }
-                }
-                else { dataSkip=1; } // Wrong data length or packet id, so skip 1 byte
-            }
-            else { dataSkip=1; } // Wrong marker bits, so skip 1 byte
+          dataLen = lookByte(xFifo,3) + (lookByte(xFifo,4) << 8);
+          packetId = lookByte(xFifo,5) + (lookByte(xFifo,6) << 8);
+          if (packetId > 0 && dataLen < MAX_PACK_LEN)
+          {
+              if (dataLen>10)
+              {
+                dataReceiving = 1;
+              }
+              else
+              {
+                  // Got ShortPackage (Header Only)
+                  parser(xFifo,packetId,0,Msg_GetSrc(lookByte(xFifo,2)),Msg_GetDest(lookByte(xFifo,2)));
+              }
+          }
+          else { dataSkip=1; } // Wrong data length or packet id, so skip 1 byte
         }
         else { dataSkip=1; } // Wrong CRC8, so skip 1 byte
       }
@@ -530,8 +532,8 @@ void xFifosInit(void)
 {
   for(int i = 0; i < sizeof(xHandles) / sizeof(xHandles[0]); i++)
   {
-    protInit(&xHandles[i].xTxFifo,xHandles[i].xTxFifoBuf,1,sizeof(MAX_PACK_LEN));
-    protInit(&xHandles[i].xRxFifo,xHandles[i].xRxFifoBuf,1,sizeof(MAX_PACK_LEN));
+    protInit(&xHandles[i].xTxFifo,xHandles[i].xTxFifoBuf,1,MAX_PACK_LEN);
+    protInit(&xHandles[i].xRxFifo,xHandles[i].xRxFifoBuf,1,MAX_PACK_LEN);
   }
 }
 

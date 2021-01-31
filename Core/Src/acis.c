@@ -80,7 +80,10 @@ void acis_main_task(void * argument)
   tGuiHandler = osThreadNew(acis_gui_task, NULL, &cTaskAttributes);
   while(1)
   {
-    osDelay(100);
+
+    char * str = "Hello WorlD!";
+    xSender(etrACIS, str, strlen(str));
+    osDelay(1000);
   }
 
 }
