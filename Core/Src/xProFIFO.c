@@ -76,8 +76,8 @@ static inline void interLook(sProFIFO* fifo, uint32_t xIndex, void* xData) {
     memcpy((uint8_t*)xData, (uint8_t*)((uint32_t)fifo->buffer + xIndex * fifo->info.elemsize), fifo->info.elemsize);
 }
 
-static inline uint8_t interPush(sProFIFO* fifo, void* xData) {
-    uint8_t retval;
+static inline uint32_t interPush(sProFIFO* fifo, void* xData) {
+    uint32_t retval;
     if ((retval = infoGetAvail(&fifo->info))) {
         interPut(fifo,xData);
         infoMovePar(&fifo->info, &fifo->info.write, 1);
@@ -85,8 +85,8 @@ static inline uint8_t interPush(sProFIFO* fifo, void* xData) {
     return retval;
 }
 
-static inline uint8_t interPull(sProFIFO* fifo, void* xDest) {
-    uint8_t retval;
+static inline uint32_t interPull(sProFIFO* fifo, void* xDest) {
+    uint32_t retval;
     if ((retval = infoIsSome(&fifo->info))) {
         interGet(fifo,xDest);
         infoMovePar(&fifo->info, &fifo->info.read, 1);
@@ -94,32 +94,32 @@ static inline uint8_t interPull(sProFIFO* fifo, void* xDest) {
     return retval;
 }
 
-static inline uint8_t interPushSequence(sProFIFO* fifo, void* xData, uint32_t xCount) {
-    uint8_t retval; uint32_t i;
+static inline uint32_t interPushSequence(sProFIFO* fifo, void* xData, uint32_t xCount) {
+    uint32_t retval; uint32_t i;
     for (i=0; i<xCount; i++) {
         if (!(retval = interPush(fifo, (void*)((uint32_t)xData + i * fifo->info.elemsize)))) { break; }
     }
     return retval;
 }
 
-uint8_t protPushSequence(sProFIFO* fifo, void* xData, uint32_t xCount) {
-    uint8_t retval;
+uint32_t protPushSequence(sProFIFO* fifo, void* xData, uint32_t xCount) {
+    uint32_t retval;
     xSemaphoreTake(fifo->info.lock, portMAX_DELAY);
         retval=interPushSequence(fifo,xData,xCount);
     xSemaphoreGive(fifo->info.lock);
     return retval;
 }
 
-uint8_t protPush(sProFIFO* fifo, void* xData) {
-    uint8_t retval;
+uint32_t protPush(sProFIFO* fifo, void* xData) {
+    uint32_t retval;
     xSemaphoreTake(fifo->info.lock, portMAX_DELAY);
         retval=interPush(fifo,xData);
     xSemaphoreGive(fifo->info.lock);
     return retval;
 }
 
-uint8_t protPull(sProFIFO* fifo, void* xDest) {
-    uint8_t retval;
+uint32_t protPull(sProFIFO* fifo, void* xDest) {
+    uint32_t retval;
         retval=interPull(fifo,xDest);
     return retval;
 }

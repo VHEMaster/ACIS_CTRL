@@ -52,8 +52,8 @@ typedef struct
 {
     uint8_t BufRx[UART_DMA_BUFFER];
     uint8_t BufTx[MAX_PACK_LEN];
-    uint8_t xRxFifoBuf[MAX_PACK_LEN];
-    uint8_t xTxFifoBuf[MAX_PACK_LEN];
+    uint8_t xRxFifoBuf[MAX_PACK_LEN*4];
+    uint8_t xTxFifoBuf[MAX_PACK_LEN*4];
     uint8_t BufSender[MAX_PACK_LEN];
     uint8_t BufParser[MAX_PACK_LEN];
     UART_HandleTypeDef * xUart;
@@ -532,8 +532,9 @@ void xFifosInit(void)
 {
   for(int i = 0; i < sizeof(xHandles) / sizeof(xHandles[0]); i++)
   {
-    protInit(&xHandles[i].xTxFifo,xHandles[i].xTxFifoBuf,1,MAX_PACK_LEN);
-    protInit(&xHandles[i].xRxFifo,xHandles[i].xRxFifoBuf,1,MAX_PACK_LEN);
+    protInit(&xHandles[i].xTxFifo,xHandles[i].xTxFifoBuf,1,MAX_PACK_LEN*4);
+    protInit(&xHandles[i].xRxFifo,xHandles[i].xRxFifoBuf,1,MAX_PACK_LEN*4);
+    xHandles[i].RxPointer = 0xFFFFFFFF;
   }
 }
 
@@ -556,7 +557,7 @@ void xGetterLoop(void)
   uint32_t dmacnt;
   uint32_t length;
   uint32_t dmasize;
-  uint8_t tempbuffer[MAX_PACK_LEN / 2];
+  uint8_t tempbuffer[MAX_PACK_LEN];
 
   for(int i = 0; i < sizeof(xHandles) / sizeof(xHandles[0]); i++)
   {
@@ -565,11 +566,12 @@ void xGetterLoop(void)
     {
       dmacnt = handle->xUart->hdmarx->Instance->NDTR;
       dmasize = handle->xUart->RxXferSize;
+      if(handle->RxPointer == 0xFFFFFFFF) handle->RxPointer = dmacnt;
       if(dmacnt > handle->RxPointer)
         length = (dmasize-dmacnt)+handle->RxPointer;
       else length = handle->RxPointer-dmacnt;
 
-      if(length > MAX_PACK_LEN / 2) length = MAX_PACK_LEN / 2;
+      if(length > MAX_PACK_LEN) length = MAX_PACK_LEN;
       if(length > 0)
       {
         CacheInvalidate(handle->BufRx, UART_DMA_BUFFER);
