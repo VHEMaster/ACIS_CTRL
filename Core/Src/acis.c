@@ -11,6 +11,7 @@
 #include "RREFont.h"
 #include "xCommand.h"
 #include "packets.h"
+#include <string.h>
 
 osThreadId_t tGuiHandler;
 static const osThreadAttr_t cTaskAttributes = {
@@ -29,6 +30,12 @@ volatile float StatusRPM = 0;
 volatile float StatusLoad = 0;
 volatile float StatusPressure = 0;
 volatile float StatusIgnition = 0;
+volatile float StatusVoltage = 0;
+volatile uint8_t StatusTableNum = 0;
+volatile uint8_t StatusValveNum = 0;
+volatile uint8_t StatusCheck = 0;
+char StatusTableName[TABLE_STRING_MAX] = {0};
+
 volatile uint8_t StatusTimeout = 0;
 
 static int8_t acis_send_command(eTransChannels xChaDst, void * msgBuf, uint32_t length);
@@ -43,6 +50,26 @@ static void acis_gui_task(void * argument)
 
   while(1)
   {
+    if(StatusValveNum == 1)
+    {
+      HAL_GPIO_WritePin(LED1R_GPIO_Port, LED1R_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(LED1G_GPIO_Port, LED1G_Pin, GPIO_PIN_SET);
+    }
+    else if(StatusValveNum == 2)
+    {
+      HAL_GPIO_WritePin(LED1R_GPIO_Port, LED1R_Pin, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(LED1G_GPIO_Port, LED1G_Pin, GPIO_PIN_RESET);
+    }
+    else
+    {
+      HAL_GPIO_WritePin(LED1R_GPIO_Port, LED1R_Pin, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(LED1G_GPIO_Port, LED1G_Pin, GPIO_PIN_SET);
+    }
+
+    if(StatusCheck)
+      HAL_GPIO_WritePin(LED1R_GPIO_Port, LED2R_Pin, GPIO_PIN_RESET);
+    else HAL_GPIO_WritePin(LED1R_GPIO_Port, LED2R_Pin, GPIO_PIN_SET);
+
     now = Delay_Tick;
     if(eMenuItem != eOldMenu)
     {
@@ -63,13 +90,15 @@ static void acis_gui_task(void * argument)
           lcd_clear();
           lcd_rect(0,0,128,64,1);
           font_setFont(&rre_12x16);
-          font_printf(4,4,"RPM:   %5d",(int)StatusRPM);
-          font_printf(4,4+font_getHeight(),"Ign:       %3dd", (int)StatusIgnition);
-          font_printf(4,4+font_getHeight()*2,"Load:    %3d%%", (int)StatusLoad);
+          font_printf(4,4,"RPM:   %5.0f",StatusRPM);
+          font_printf(4,4+font_getHeight(),"Load:    %3.0f%%", StatusLoad);
+          font_printf(4,4+font_getHeight()*2,"Ign:       %3.0fd", StatusIgnition);
           font_setFont(&rre_5x8);
-          font_printf(4,53,"Fuel type: %s", "fuel 1");
+          font_printf(4,53,"%d: %-11s", StatusTableNum+1, StatusTableName);
           if(StatusTimeout)
-            font_printf(84,53,"Timeout!");
+            font_printf(72,53,"Timeout!");
+          else
+            font_printf(72,53,"U: %4.1fV",StatusVoltage);
           lcd_update();
         }
 
@@ -107,6 +136,11 @@ void acis_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t lengt
       StatusLoad = PK_GeneralStatusResponse.Load;
       StatusRPM = PK_GeneralStatusResponse.RPM;
       StatusPressure = PK_GeneralStatusResponse.Pressure;
+      StatusVoltage = PK_GeneralStatusResponse.Voltage;
+      StatusCheck = PK_GeneralStatusResponse.check;
+      StatusValveNum = PK_GeneralStatusResponse.valvenum;
+      StatusTableNum = PK_GeneralStatusResponse.tablenum;
+      strcpy(StatusTableName, PK_GeneralStatusResponse.tablename);
       break;
     default:
       break;
@@ -117,7 +151,10 @@ inline int8_t acis_send_command(eTransChannels xChaDst, void * msgBuf, uint32_t 
 {
   int8_t status = xSender(xChaDst, (uint8_t*)msgBuf, length);
   if(status == -1)
+  {
     StatusTimeout = 1;
+    StatusCheck = 1;
+  }
   else if(status == 1) StatusTimeout = 0;
   return status;
 }

@@ -8,6 +8,8 @@
 #define COUNTERS 50
 extern volatile uint32_t DelStart[COUNTERS];
 
+#define DelayMask 0x03FFFFFF
+
 extern void DelayInit(void);
 extern void DelayNs(uint32_t micros);
 extern void DelayUs(uint32_t micros);

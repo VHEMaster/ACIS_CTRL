@@ -202,9 +202,5 @@ void controls_irq(void)
     BUT_DOWN_PRESS = 0;
     TIM2->CCR3 = 0;
   }
-  HAL_GPIO_WritePin(LED1R_GPIO_Port, LED1R_Pin, !BUT_LEFT_PRESS);
-  HAL_GPIO_WritePin(LED1G_GPIO_Port, LED1G_Pin, !BUT_RIGHT_PRESS);
-  HAL_GPIO_WritePin(LED2R_GPIO_Port, LED2R_Pin, !BUT_UP_PRESS);
-  HAL_GPIO_WritePin(LED2G_GPIO_Port, LED2G_Pin, !BUT_DOWN_PRESS);
 }
 
