@@ -423,7 +423,7 @@ int font_drawChar(int x, int y, unsigned char c)
 }
 
 // ----------------------------------------------------------------
-int font_strWidth(char *str)
+int font_strWidth(const char *str)
 {
   int wd = 0;
   while (*str) wd += font_charWidth(*str++);
@@ -432,7 +432,7 @@ int font_strWidth(char *str)
 
 static char printfbuffer[512];
 
-int font_printf(int xpos, int ypos, char *str, ...)
+int font_printf(int xpos, int ypos, const char *str, ...)
 {
   va_list args;
   va_start(args, str);
@@ -442,7 +442,7 @@ int font_printf(int xpos, int ypos, char *str, ...)
 }
 
 // ----------------------------------------------------------------
-int font_printStr(int xpos, int ypos, char *str)
+int font_printStr(int xpos, int ypos, const char *str)
 {
   unsigned char ch;
   int stl, row;
@@ -452,8 +452,14 @@ int font_printStr(int xpos, int ypos, char *str)
 
   //fillRectFun(xpos, ypos, wd, font_getHeight(), 0);
 
-  if(x==ALIGN_RIGHT) x = scrWd - wd; // right = -1
-  else if(x<0) x = (scrWd - wd) / 2; // center = -2
+  if(x < 0)
+  {
+    x = -x - wd;
+  }
+
+  if(x == 0)
+    x = (scrWd - wd) / 2;
+
   if(x<0) x = 0; // left
 
   while(*str) {
@@ -465,7 +471,7 @@ int font_printStr(int xpos, int ypos, char *str)
       y += rFont->ht * sy + spacingY; 
     }
   }
-  return x;
+  return wd;
 }
 // ----------------------------------------------------------------
 // callbacks

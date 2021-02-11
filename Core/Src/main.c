@@ -117,8 +117,8 @@ static void showlogo(void)
   font_setFont(&rre_ubuntu_32);
   font_printStr(30,4,"ACIS");
   font_setFont(&rre_arialb_16);
-  font_printStr(0,32,"Advanced Car");
-  font_printStr(13,46,"Ignition System");
+  font_printStr(2,32,"Advanced Car");
+  font_printStr(12,46,"Ignition System");
   lcd_update();
   DelayMs(1000);
 }

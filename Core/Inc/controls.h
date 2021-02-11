@@ -33,6 +33,14 @@ extern volatile uint8_t BUT_DOWN;
 extern volatile uint8_t BUT_ENTER;
 extern volatile uint8_t BUT_CANCEL;
 
+extern volatile uint8_t SW_FUEL1;
+extern volatile uint8_t SW_FUEL2;
+extern volatile uint8_t SW_DISPLAY;
+
+extern volatile uint32_t SW_FUEL1_TIME;
+extern volatile uint32_t SW_FUEL2_TIME;
+extern volatile uint32_t SW_DISPLAY_TIME;
+
 extern volatile void controls_irq(void);
 
 #endif /* INC_CONTROLS_H_ */

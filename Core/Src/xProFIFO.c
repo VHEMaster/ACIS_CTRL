@@ -95,9 +95,12 @@ static inline uint32_t interPull(sProFIFO* fifo, void* xDest) {
 }
 
 static inline uint32_t interPushSequence(sProFIFO* fifo, void* xData, uint32_t xCount) {
-    uint32_t retval; uint32_t i;
-    for (i=0; i<xCount; i++) {
-        if (!(retval = interPush(fifo, (void*)((uint32_t)xData + i * fifo->info.elemsize)))) { break; }
+    uint32_t retval = 0; uint32_t i;
+    if(infoGetAvail(&fifo->info) >= xCount)
+    {
+      for (i=0; i<xCount; i++) {
+          if (!(retval = interPush(fifo, (void*)((uint32_t)xData + i * fifo->info.elemsize)))) { break; }
+      }
     }
     return retval;
 }

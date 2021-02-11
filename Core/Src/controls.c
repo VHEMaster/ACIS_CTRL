@@ -12,8 +12,8 @@
 #define SW_CTRL(x) (SW_##x##_GPIO_Port->IDR&SW_##x##_Pin)
 #define ISPRESS(x) ((x)>0)
 #define ISSWITCH(x) ((x)==0)
-#define BUT_PRESS_DELAY 20
-#define SW_PRESS_DELAY 50
+#define BUT_PRESS_DELAY 50
+#define SW_PRESS_DELAY 10
 
 #define TIM_STEP 1
 static uint32_t TIM_CNT = 0;
@@ -73,7 +73,7 @@ static uint8_t sw_display_delay = 0;
 
 void controls_irq(void)
 {
-
+  TIM_CNT += TIM_STEP;
   //Fuel1
   if(ISSWITCH(SW_CTRL(FUEL1)))
   {
@@ -114,8 +114,8 @@ void controls_irq(void)
     {
       if(but_up_delay > BUT_PRESS_DELAY)
       {
-        if(but_up_ftime == 0) but_up_ftime = TIM_CNT;
-        BUT_UP_TIME = TIM_CNT-but_up_ftime;
+        if(but_up_ftime == 0) but_up_ftime = TIM_CNT, BUT_UP_TIME = 0;
+        BUT_UP_TIME += TIM_STEP;
         if(BUT_LEFT_PRESS == 0 && BUT_RIGHT_PRESS == 0 && BUT_UP_PRESS == 0 && BUT_DOWN_PRESS == 0)
           BUT_UP = 1;
         BUT_UP_PRESS = 1;
@@ -127,8 +127,8 @@ void controls_irq(void)
     {
       if(but_down_delay > BUT_PRESS_DELAY)
       {
-        if(but_down_ftime == 0) but_down_ftime = TIM_CNT;
-        BUT_DOWN_TIME = TIM_CNT-but_down_ftime;
+        if(but_down_ftime == 0) but_down_ftime = TIM_CNT, BUT_DOWN_TIME = 0;
+        BUT_DOWN_TIME += TIM_STEP;
         if(BUT_LEFT_PRESS == 0 && BUT_RIGHT_PRESS == 0 && BUT_UP_PRESS == 0 && BUT_DOWN_PRESS == 0)
           BUT_DOWN = 1;
         BUT_DOWN_PRESS = 1;
@@ -140,8 +140,8 @@ void controls_irq(void)
     {
       if(but_left_delay > BUT_PRESS_DELAY)
       {
-        if(but_left_ftime == 0) but_left_ftime = TIM_CNT;
-        BUT_LEFT_TIME = TIM_CNT-but_left_ftime;
+        if(but_left_ftime == 0) but_left_ftime = TIM_CNT, BUT_LEFT_TIME = 0;
+        BUT_LEFT_TIME += TIM_STEP;
         if(BUT_LEFT_PRESS == 0 && BUT_RIGHT_PRESS == 0 && BUT_UP_PRESS == 0 && BUT_DOWN_PRESS == 0)
           BUT_LEFT = 1;
         BUT_LEFT_PRESS = 1;
@@ -153,8 +153,8 @@ void controls_irq(void)
     {
       if(but_right_delay > BUT_PRESS_DELAY)
       {
-        if(but_right_ftime == 0) but_right_ftime = TIM_CNT;
-        BUT_RIGHT_TIME = TIM_CNT-but_right_ftime;
+        if(but_right_ftime == 0) but_right_ftime = TIM_CNT, BUT_RIGHT_TIME = 0;
+        BUT_RIGHT_TIME += TIM_STEP;
         if(BUT_LEFT_PRESS == 0 && BUT_RIGHT_PRESS == 0 && BUT_UP_PRESS == 0 && BUT_DOWN_PRESS == 0)
           BUT_RIGHT = 1;
         BUT_RIGHT_PRESS = 1;
@@ -166,9 +166,9 @@ void controls_irq(void)
     {
       if(but_cancel_delay > BUT_PRESS_DELAY)
       {
-        if(but_cancel_ftime == 0) but_cancel_ftime = TIM_CNT;
-        BUT_CANCEL_TIME = TIM_CNT-but_cancel_ftime;
-        BUT_CANCEL = 1;
+        if(but_cancel_ftime == 0) but_cancel_ftime = TIM_CNT, BUT_CANCEL_TIME = 0,BUT_CANCEL = 1;
+        BUT_CANCEL_TIME += TIM_STEP;
+
         BUT_CANCEL_PRESS = 1;
       } else but_cancel_delay+=TIM_STEP;
     } else BUT_CANCEL_PRESS = but_cancel_delay = but_cancel_ftime = 0;
@@ -178,9 +178,8 @@ void controls_irq(void)
     {
       if(but_enter_delay > BUT_PRESS_DELAY)
       {
-        if(but_enter_ftime == 0) but_enter_ftime = TIM_CNT;
-        BUT_ENTER_TIME = TIM_CNT-but_enter_ftime;
-        BUT_ENTER = 1;
+        if(but_enter_ftime == 0) but_enter_ftime = TIM_CNT, BUT_ENTER_TIME = 0,BUT_ENTER = 1;
+        BUT_ENTER_TIME += TIM_STEP;
         BUT_ENTER_PRESS = 1;
       } else but_enter_delay+=TIM_STEP;
     } else BUT_ENTER_PRESS = but_enter_delay = but_enter_ftime = 0;

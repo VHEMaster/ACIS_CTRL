@@ -8,6 +8,7 @@
 #include "lcd12864.h"
 #include "RREFont.h"
 #include "cmsis_os.h"
+#include <stdlib.h>
 
 uint8_t lcd_buffer[8][128];
 
@@ -159,6 +160,347 @@ void lcd_rect(int x, int y, int w, int h, int c)
   }
 }
 
+
+void lcd_line(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint16_t color)
+{
+  if(x1>=x0 && y1>=y0)
+  {
+    if(x1-x0 >= y1-y0)
+    {
+      int16_t deltax = abs(x1 - x0);
+      int16_t deltay = abs(y1 - y0);
+      int16_t error = 0;
+      int16_t deltaerr = deltay;
+      int16_t y = y0,x;
+      for(x=x0;x<=x1;x++)
+      {
+          { if(color) lcd_drawpoint(x,y); else lcd_clearpoint(x,y); }
+          error = error+deltaerr;
+          if(2*error >= deltax)
+          {
+              y = y + 1;
+              error = error - deltax;
+          }
+      }
+    }
+    else
+    {
+      int16_t deltax = abs(x1 - x0);
+      int16_t deltay = abs(y1 - y0);
+      int16_t error = 0;
+      int16_t deltaerr = deltax;
+      int16_t x = x0,y;
+      for(y=y0;y<=y1;y++)
+      {
+          { if(color) lcd_drawpoint(x,y); else lcd_clearpoint(x,y); }
+          error = error+deltaerr;
+          if(2*error >= deltay)
+          {
+              x = x + 1;
+              error = error - deltay;
+          }
+      }
+    }
+  }
+  else if(x0>=x1 && y0>=y1)
+  {
+    if(x0-x1 >= y0-y1)
+    {
+      int16_t deltax = abs(x0 - x1);
+      int16_t deltay = abs(y0 - y1);
+      int16_t error = 0;
+      int16_t deltaerr = deltay;
+      int16_t y = y1,x;
+      for(x=x1;x<=x0;x++)
+      {
+          { if(color) lcd_drawpoint(x,y); else lcd_clearpoint(x,y); }
+          error = error+deltaerr;
+          if(2*error >= deltax)
+          {
+              y = y + 1;
+              error = error - deltax;
+          }
+      }
+    }
+    else
+    {
+      int16_t deltax = abs(x0 - x1);
+      int16_t deltay = abs(y0 - y1);
+      int16_t error = 0;
+      int16_t deltaerr = deltax;
+      int16_t x = x1,y;
+      for(y=y1;y<=y0;y++)
+      {
+          { if(color) lcd_drawpoint(x,y); else lcd_clearpoint(x,y); }
+          error = error+deltaerr;
+          if(2*error >= deltay)
+          {
+              x = x + 1;
+              error = error - deltay;
+          }
+      }
+    }
+  }
+  else if(x0>=x1 && y1>=y0)
+  {
+    if(x0-x1 >= y1-y0)
+    {
+      int16_t deltax = abs(x0 - x1);
+      int16_t deltay = abs(y1 - y0);
+      int16_t error = 0;
+      int16_t deltaerr = deltay;
+      int16_t y = y0,x;
+      for(x=x0;x>=x1;x--)
+      {
+          { if(color) lcd_drawpoint(x,y); else lcd_clearpoint(x,y); }
+          error = error+deltaerr;
+          if(2*error >= deltax)
+          {
+              y = y + 1;
+              error = error - deltax;
+          }
+      }
+    }
+    else
+    {
+      int16_t deltax = abs(x0 - x1);
+      int16_t deltay = abs(y1 - y0);
+      int16_t error = 0;
+      int16_t deltaerr = deltax;
+      int16_t x = x1,y;
+      for(y=y1;y>=y0;y--)
+      {
+          { if(color) lcd_drawpoint(x,y); else lcd_clearpoint(x,y); }
+          error = error+deltaerr;
+          if(2*error >= deltay)
+          {
+              x = x + 1;
+              error = error - deltay;
+          }
+      }
+    }
+  }
+  else if(x1>=x0 && y0>=y1)
+  {
+    if(x1-x0 >= y0-y1)
+    {
+      int16_t deltax = abs(x1 - x0);
+      int16_t deltay = abs(y0 - y1);
+      int16_t error = 0;
+      int16_t deltaerr = deltay;
+      int16_t y = y1,x;
+      for(x=x1;x>=x0;x--)
+      {
+          { if(color) lcd_drawpoint(x,y); else lcd_clearpoint(x,y); }
+          error = error+deltaerr;
+          if(2*error >= deltax)
+          {
+              y = y + 1;
+              error = error - deltax;
+          }
+      }
+    }
+    else
+    {
+      int16_t deltax = abs(x1 - x0);
+      int16_t deltay = abs(y0 - y1);
+      int16_t error = 0;
+      int16_t deltaerr = deltax;
+      int16_t x = x0,y;
+      for(y=y0;y>=y1;y--)
+      {
+          { if(color) lcd_drawpoint(x,y); else lcd_clearpoint(x,y); }
+          error = error+deltaerr;
+          if(2*error >= deltay)
+          {
+              x = x + 1;
+              error = error - deltay;
+          }
+      }
+    }
+  }
+
+}
+
+void lcd_line_limited(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t lim_x0, int16_t lim_y0, int16_t lim_x1, int16_t lim_y1, uint16_t color)
+{
+  if(x1>=x0 && y1>=y0)
+  {
+    if(x1-x0 >= y1-y0)
+    {
+      int16_t deltax = abs(x1 - x0);
+      int16_t deltay = abs(y1 - y0);
+      int16_t error = 0;
+      int16_t deltaerr = deltay;
+      int16_t y = y0,x;
+      for(x=x0;x<=x1;x++)
+      {
+          if(x >= lim_x0 && x <= lim_x1 && y >= lim_y0 && y <= lim_y1) { if(color) lcd_drawpoint(x,y); else lcd_clearpoint(x,y); }
+          error = error+deltaerr;
+          if(2*error >= deltax)
+          {
+              y = y + 1;
+              error = error - deltax;
+          }
+      }
+    }
+    else
+    {
+      int16_t deltax = abs(x1 - x0);
+      int16_t deltay = abs(y1 - y0);
+      int16_t error = 0;
+      int16_t deltaerr = deltax;
+      int16_t x = x0,y;
+      for(y=y0;y<=y1;y++)
+      {
+          if(x >= lim_x0 && x <= lim_x1 && y >= lim_y0 && y <= lim_y1) { if(color) lcd_drawpoint(x,y); else lcd_clearpoint(x,y); }
+          error = error+deltaerr;
+          if(2*error >= deltay)
+          {
+              x = x + 1;
+              error = error - deltay;
+          }
+      }
+    }
+  }
+  else if(x0>=x1 && y0>=y1)
+  {
+    if(x0-x1 >= y0-y1)
+    {
+      int16_t deltax = abs(x0 - x1);
+      int16_t deltay = abs(y0 - y1);
+      int16_t error = 0;
+      int16_t deltaerr = deltay;
+      int16_t y = y1,x;
+      for(x=x1;x<=x0;x++)
+      {
+          if(x >= lim_x0 && x <= lim_x1 && y >= lim_y0 && y <= lim_y1) { if(color) lcd_drawpoint(x,y); else lcd_clearpoint(x,y); }
+          error = error+deltaerr;
+          if(2*error >= deltax)
+          {
+              y = y + 1;
+              error = error - deltax;
+          }
+      }
+    }
+    else
+    {
+      int16_t deltax = abs(x0 - x1);
+      int16_t deltay = abs(y0 - y1);
+      int16_t error = 0;
+      int16_t deltaerr = deltax;
+      int16_t x = x1,y;
+      for(y=y1;y<=y0;y++)
+      {
+          if(x >= lim_x0 && x <= lim_x1 && y >= lim_y0 && y <= lim_y1) { if(color) lcd_drawpoint(x,y); else lcd_clearpoint(x,y); }
+          error = error+deltaerr;
+          if(2*error >= deltay)
+          {
+              x = x + 1;
+              error = error - deltay;
+          }
+      }
+    }
+  }
+  else if(x0>=x1 && y1>=y0)
+  {
+    if(x0-x1 >= y1-y0)
+    {
+      int16_t deltax = abs(x0 - x1);
+      int16_t deltay = abs(y1 - y0);
+      int16_t error = 0;
+      int16_t deltaerr = deltay;
+      int16_t y = y0,x;
+      for(x=x0;x>=x1;x--)
+      {
+          if(x >= lim_x0 && x <= lim_x1 && y >= lim_y0 && y <= lim_y1) { if(color) lcd_drawpoint(x,y); else lcd_clearpoint(x,y); }
+          error = error+deltaerr;
+          if(2*error >= deltax)
+          {
+              y = y + 1;
+              error = error - deltax;
+          }
+      }
+    }
+    else
+    {
+      int16_t deltax = abs(x0 - x1);
+      int16_t deltay = abs(y1 - y0);
+      int16_t error = 0;
+      int16_t deltaerr = deltax;
+      int16_t x = x1,y;
+      for(y=y1;y>=y0;y--)
+      {
+          if(x >= lim_x0 && x <= lim_x1 && y >= lim_y0 && y <= lim_y1) { if(color) lcd_drawpoint(x,y); else lcd_clearpoint(x,y); }
+          error = error+deltaerr;
+          if(2*error >= deltay)
+          {
+              x = x + 1;
+              error = error - deltay;
+          }
+      }
+    }
+  }
+  else if(x1>=x0 && y0>=y1)
+  {
+    if(x1-x0 >= y0-y1)
+    {
+      int16_t deltax = abs(x1 - x0);
+      int16_t deltay = abs(y0 - y1);
+      int16_t error = 0;
+      int16_t deltaerr = deltay;
+      int16_t y = y1,x;
+      for(x=x1;x>=x0;x--)
+      {
+          if(x >= lim_x0 && x <= lim_x1 && y >= lim_y0 && y <= lim_y1) { if(color) lcd_drawpoint(x,y); else lcd_clearpoint(x,y); }
+          error = error+deltaerr;
+          if(2*error >= deltax)
+          {
+              y = y + 1;
+              error = error - deltax;
+          }
+      }
+    }
+    else
+    {
+      int16_t deltax = abs(x1 - x0);
+      int16_t deltay = abs(y0 - y1);
+      int16_t error = 0;
+      int16_t deltaerr = deltax;
+      int16_t x = x0,y;
+      for(y=y0;y>=y1;y--)
+      {
+          if(x >= lim_x0 && x <= lim_x1 && y >= lim_y0 && y <= lim_y1) { if(color) lcd_drawpoint(x,y); else lcd_clearpoint(x,y); }
+          error = error+deltaerr;
+          if(2*error >= deltay)
+          {
+              x = x + 1;
+              error = error - deltay;
+          }
+      }
+    }
+  }
+}
+
+void lcd_circle5x5(int16_t x, int16_t y)
+{
+  lcd_drawpoint(x-2,y-1);
+  lcd_drawpoint(x-2,y);
+  lcd_drawpoint(x-2,y+1);
+  lcd_drawpoint(x+2,y+1);
+  lcd_drawpoint(x+2,y);
+  lcd_drawpoint(x+2,y-1);
+  lcd_drawpoint(x-1,y-2);
+  lcd_drawpoint(x,y-2);
+  lcd_drawpoint(x+1,y-2);
+  lcd_drawpoint(x-1,y+2);
+  lcd_drawpoint(x,y+2);
+  lcd_drawpoint(x+1,y+2);
+  for(int i = 0; i < 3; i++)
+    for(int j = 0; j < 3; j++)
+      lcd_clearpoint(x+i-1,y+j-1);
+}
+
 void showFont(char *name)
 {
   TIM2->CCR3 = 255;
@@ -187,7 +529,7 @@ void lcd_init(void)
   font_init(lcd_rect_solid, 128, 64);
   font_setCR(0);
 
-
-  //font_setFont(&rre_ubuntu_32); showFont("[rre_ubuntu_32]");
-
+  //font_setFont(&rre_arialb_16); showFont("[rre_arialb_16]"); lcd_clear();
 }
+
+

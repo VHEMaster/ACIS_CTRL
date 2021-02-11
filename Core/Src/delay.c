@@ -5,6 +5,7 @@
 static TIM_HandleTypeDef htim_delay;
 
 volatile uint32_t DelStart[COUNTERS];
+static volatile uint32_t divider = 0;
 static volatile uint32_t prescaller = 0;
 
 void DelayInit(void)
@@ -14,8 +15,10 @@ void DelayInit(void)
     TIM_MasterConfigTypeDef sMasterConfig;
 
     htim_delay.Instance = DelayTimer;
-    prescaller = (HAL_RCC_GetPCLK1Freq() * 2 / 1000000);
-    htim_delay.Init.Prescaler = 0;
+    divider = 4;
+
+    prescaller = (HAL_RCC_GetPCLK1Freq() * 2 / 1000000) / divider;
+    htim_delay.Init.Prescaler = divider - 1;
     htim_delay.Init.CounterMode = TIM_COUNTERMODE_UP;
     htim_delay.Init.Period = DelayMask;
     htim_delay.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;

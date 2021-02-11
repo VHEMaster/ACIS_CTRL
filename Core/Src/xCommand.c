@@ -76,10 +76,6 @@ static volatile uint16_t ReceivedAckPacket = 1;
 static volatile uint16_t NeededAckPacketId = 0;
 static volatile uint32_t LastNotAckedTime = 0;
 
-volatile uint32_t time1 = 0;
-volatile uint32_t time2 = 0;
-
-
 static sGetterHandle xHandles[] = {
     {{0},{0},{0},{0},{0},{0}, &huart1, etrACIS },
     {{0},{0},{0},{0},{0},{0}, &huart3, etrPC },
@@ -277,7 +273,6 @@ int8_t xSender(eTransChannels xChaDest, uint8_t* xMsgPtr, uint32_t xMsgLen)
       RetriesPacket = 0;
       taskEXIT_CRITICAL();
       NeededAckPacketId = calculatePacketId();
-      time1 = Delay_Tick;
       packager(handle, xMsgPtr, xMsgLen, xChaDest, NeededAckPacketId);
     }
   }
@@ -338,7 +333,6 @@ static inline void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen
                 taskENTER_CRITICAL();
                 if(NeedAckPacket && NeededAckPacketId != 0 && NeededAckPacketId == xPacketId && !ReceivedAckPacket)
                 {
-                  time2 = DelayDiff(Delay_Tick, time1);
                   ReceivedAckPacket = 1;
                 }
                 taskEXIT_CRITICAL();

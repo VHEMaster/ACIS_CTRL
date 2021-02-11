@@ -52,9 +52,9 @@ extern int font_charWidthNoSort(unsigned char c, int *_xmin);
 extern int font_charWidthOptim(unsigned char c, int *_xmin);
 extern int font_charWidth(unsigned char c);
 extern int font_drawChar(int x, int y, unsigned char c);
-extern int font_strWidth(char *str);
-extern int font_printStr(int xpos, int ypos, char *str);
-extern int font_printf(int xpos, int ypos, char *str, ...);
+extern int font_strWidth(const char *str);
+extern int font_printStr(int xpos, int ypos, const char *str);
+extern int font_printf(int xpos, int ypos, const char *str, ...);
 
 
 extern void font_setScale2(unsigned char _sx, unsigned char _sy);
