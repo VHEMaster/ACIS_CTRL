@@ -143,6 +143,8 @@ int main(void)
   MX_TIM7_Init();
   xFifosInit();
 
+  __HAL_DBGMCU_FREEZE_TIM5();
+
   CRC16_RegisterHardware(&hcrc);
 
   HAL_GPIO_WritePin(USB_RST_GPIO_Port, USB_RST_Pin, GPIO_PIN_SET);

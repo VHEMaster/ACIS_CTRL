@@ -23,4 +23,5 @@ extern void lcd_rect(int x, int y, int w, int h, int c);
 extern void lcd_line(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint16_t color);
 extern void lcd_line_limited(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t lim_x0, int16_t lim_y0, int16_t lim_x1, int16_t lim_y1, uint16_t color);
 extern void lcd_circle5x5(int16_t x, int16_t y);
+extern void lcd_circle5x5fill(int16_t x, int16_t y);
 #endif /* INC_LCD12864_H_ */

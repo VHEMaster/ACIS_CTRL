@@ -44,12 +44,15 @@ typedef enum
   MenuMainLast,
   MenuTableSetupPressures,
   MenuTableSetupRotates,
-  MenuTableSetupIgnitions,
   MenuTableSetupIdleRotates,
   MenuTableSetupIdleIgnitions,
   MenuTableSetupTemperatures,
   MenuTableSetupServoAccel,
   MenuTableSetupServoChoke,
+  MenuTableSetupIgnitionsSelect,
+  MenuTableSetupIgnitions,
+  MenuTableConfigSave,
+  MenuTableConfigRestore,
 }eMenuItem_t;
 
 typedef struct
@@ -98,6 +101,7 @@ volatile uint8_t NeedLoad = 0;
 
 volatile uint8_t SyncStep = 0;
 volatile uint8_t SyncRequestDone = 0;
+volatile uint8_t FlashRequestDone = 0;
 volatile uint32_t SyncSize = 0;
 volatile uint32_t SyncLeft = 0;
 volatile uint32_t SyncOffset = 0;
@@ -109,8 +113,12 @@ volatile uint8_t Applying = 0;
 volatile float DragRpmFrom = 2000;
 volatile float DragRpmTo = 4000;
 volatile float DragTime = 0;
-volatile float DragRPM = 0;
 volatile uint8_t DragStatus = 0;
+volatile uint8_t DragGraphReady = 0;
+volatile uint32_t DragPointsRawCountPtr = 0;
+volatile uint32_t DragPointsRawCount = 0;
+
+static sDragPoint DragPointsRaw[DRAG_MAX_POINTS];
 
 volatile int32_t GuiTableEntry = 0;
 
@@ -137,22 +145,25 @@ const sConfigLinking CommonConfig[] =
     {.name = "Switch Pos2 Table", .min = 0, .max = 3, .step = 1, .valuei = &acis_config.params.switchPos2Table, .valuef = NULL, .guicorrective = 1, .guimultiplier = 1.0f, },
     {.name = "Economizer RPM", .min = 1000, .max = 3000, .step = 100, .valuei = NULL, .valuef = &acis_config.params.EconRpmThreshold, .guicorrective = 0, .guimultiplier = 1.0f, },
     {.name = "Cutoff Enabled", .min = 0, .max = 1, .step = 1, .valuei = &acis_config.params.isCutoffEnabled, .valuef = NULL, .guicorrective = 0, .guimultiplier = 1.0f, },
+    {.name = "Cutoff Mode", .min = 0, .max = 7, .step = 1, .valuei = &acis_config.params.CutoffMode, .valuef = NULL, .guicorrective = 1, .guimultiplier = 1.0f, },
     {.name = "Cutoff RPM", .min = 2000, .max = 9900, .step = 100, .valuei = NULL, .valuef = &acis_config.params.CutoffRPM, .guicorrective = 0, .guimultiplier = 1.0f, },
     //{.name = "Autostart Support", .min = 0, .max = 1, .step = 1, .valuei = &acis_config.params.isAutostartEnabled, .valuef = NULL, .guicorrective = 0, },
 };
 
 const sConfigLinking TableInitial[] =
 {
-    {.name = "Tables Count", .min = 1, .max = TABLE_SETUPS_MAX, .step = 0, .valuei = &acis_config.tables_count, .valuef = NULL, .guicorrective = 0, .guimultiplier = 1.0f, },
-    {.name = "Current Table", .min = 0, .max = TABLE_SETUPS_MAX - 1, .step = 0, .valuei = (int32_t*)&StatusTableNum, .valuef = NULL, .guicorrective = 1, .guimultiplier = 1.0f, },
-    {.name = "Table Setup Entry", .min = 0, .max = TABLE_SETUPS_MAX - 1, .step = 1, .valuei = (int32_t*)&GuiTableEntry, .valuef = NULL, .guicorrective = 1, .guimultiplier = 1.0f, },
+    {.name = "Tables Count", .min = 1, .max = TABLE_SETUPS_MAX, .step = 0, .valuei = &acis_config.tables_count, .valuef = NULL, .guicorrective = 0, .guimultiplier = 1.0f, .menuitem = MenuUndefined },
+    {.name = "Current Table", .min = 0, .max = TABLE_SETUPS_MAX - 1, .step = 0, .valuei = (int32_t*)&StatusTableNum, .valuef = NULL, .guicorrective = 1, .guimultiplier = 1.0f, .menuitem = MenuUndefined },
+    {.name = "Table Setup Entry", .min = 0, .max = TABLE_SETUPS_MAX - 1, .step = 1, .valuei = (int32_t*)&GuiTableEntry, .valuef = NULL, .guicorrective = 1, .guimultiplier = 1.0f, .menuitem = MenuUndefined },
+    {.name = "Save Flash", .valuei = NULL, .valuef = NULL, .menuitem = MenuTableConfigSave },
+    {.name = "Restore Flash", .valuei = NULL, .valuef = NULL, .menuitem = MenuTableConfigRestore },
 };
 
 const sConfigLinking TableSetup[] =
 {
+    {.name = "Ignitions", .min = -45, .max = 90, .step = 0.2, .valuedep = NULL, .valuef = NULL, .valuei = (int32_t*)&acis_config.tables[0], .menuitem = MenuTableSetupIgnitionsSelect },
     {.name = "Pressures (%d)", .min = 10000, .max = 200000, .step = 200, .valuedep = NULL, .valuei = &acis_config.tables[0].pressures_count, .valuef = acis_config.tables[0].pressures, .menuitem = MenuTableSetupPressures, .title = "Pressure %d" },
     {.name = "Rotates (%d)", .min = 100, .max = 10000, .step = 50, .valuedep = NULL, .valuei = &acis_config.tables[0].rotates_count, .valuef = acis_config.tables[0].rotates, .menuitem = MenuTableSetupRotates, .title = "RPM %d" },
-    {.name = "Ignitions", .min = -45, .max = 90, .step = 0.2, .valuedep = NULL, .valuef = acis_config.tables[0].ignitions[0], .valuei = NULL, .menuitem = MenuTableSetupIgnitions, .title = "Ign.%d/%d" },
     {.name = "Idle Rotates (%d)", .min = 100, .max = 10000, .step = 10, .valuedep = NULL, .valuei = &acis_config.tables[0].idles_count, .valuef = acis_config.tables[0].idle_rotates, .menuitem = MenuTableSetupIdleRotates, .title = "Idle RPM %d" },
     {.name = "Idle Ignitions (%d)", .min = -45, .max = 90, .step = 0.2, .valuedep = acis_config.tables[0].idle_rotates, .valuei = &acis_config.tables[0].idles_count, .valuef = acis_config.tables[0].idle_ignitions, .menuitem = MenuTableSetupIdleIgnitions, .title = "Ign.%d (%.0f RPM)" },
     {.name = "Temperatures  (%d)", .min = -40, .max = 150, .step = 1, .valuedep = NULL, .valuei = &acis_config.tables[0].temperatures_count, .valuef = acis_config.tables[0].temperatures, .menuitem = MenuTableSetupTemperatures, .title = "Temp.%d" },
@@ -243,26 +254,36 @@ static HAL_StatusTypeDef acis_apply_parameter(void * parameter, int size)
 
 static void acis_gui_task(void * argument)
 {
+  sAcisIgnTable * table;
   eMenuItem_t eOldMenu = MenuUndefined;
   uint32_t check_last = 0;
   uint32_t display_timeout = Delay_Tick;
+  uint32_t value_timeout = 0;
   uint32_t select_timeout = 0;
   uint32_t last_menu_switch = Delay_Tick;
   uint32_t now;
   uint8_t cnt = 0;
 
   int32_t menuitem = 0;
+  uint32_t menufirst = 0;
   int32_t menuitem2 = 0;
   uint32_t menufirst2 = 0;
+  int32_t menuitem3 = 0;
+  uint32_t menufirst3 = 0;
+  int32_t menuitem4 = 0;
+  uint32_t menufirst4 = 0;
+
   int32_t stringchar = 0;
   uint32_t menuselecting = 0;
   uint32_t menuselected = 0;
-  uint32_t menufirst = 0;
   char tablestring[TABLE_STRING_MAX];
   int16_t tablechars[TABLE_STRING_MAX];
   uint16_t lcd_chars_len = strlen(lcd_chars);
   const sConfigLinking * tablesetupitem = NULL;
   const char * tablesetuptitle = NULL;
+  float rpm = 0;
+  float pres = 0;
+  float ign = 0;
 
   //config_default(&acis_config);
 
@@ -398,7 +419,6 @@ static void acis_gui_task(void * argument)
       if(SyncError)
       {
         eMenuItem = MenuSyncError;
-        SyncError = 0;
       }
       else if(eMenuItem == MenuSynchronizing)
         eMenuItem = MenuMain;
@@ -411,6 +431,22 @@ static void acis_gui_task(void * argument)
         SyncError = 0;
         SyncSize = 0;
       }
+    }
+
+    if(eMenuItem != eOldMenu && eMenuItem == MenuTableConfigRestore)
+    {
+      SyncError = 0;
+      SyncRequestDone = 0;
+      FlashRequestDone = 0;
+      NeedLoad = 1;
+    }
+
+    if(eMenuItem != eOldMenu && eMenuItem == MenuTableConfigSave)
+    {
+      SyncError = 0;
+      SyncRequestDone = 0;
+      FlashRequestDone = 0;
+      NeedSave = 1;
     }
 
     if(eMenuItem != eOldMenu && eOldMenu < MenuMainLast && eMenuItem < MenuTableSetup)
@@ -438,7 +474,7 @@ static void acis_gui_task(void * argument)
     {
       Delay(1);
     }
-    StatusSynchronized = 1;
+
     eOldMenu = eMenuItem;
 
     switch (eMenuItem)
@@ -453,8 +489,8 @@ static void acis_gui_task(void * argument)
           font_setFont(&rre_12x16);
           font_printf(4,4,"RPM:");
           font_printf(-125,4,"%03.0f",StatusRPM);
-          font_printf(4,4+font_getHeight(),"Load:");
-          font_printf(-125,4+font_getHeight(),"%02.0f%%", StatusLoad);
+          font_printf(4,4+font_getHeight(),"Pres:");
+          font_printf(-125,4+font_getHeight(),"%04.0f", StatusPressure);
           font_printf(4,4+font_getHeight()*2,"Ign:");
           font_printf(-125,4+font_getHeight()*2,"%3.0fd", StatusIgnition);
           font_setFont(&rre_5x8);
@@ -463,7 +499,11 @@ static void acis_gui_task(void * argument)
           if(StatusTimeout)
             font_printf(-125,53,"Timeout!");
           else
-            font_printf(-125,53,"%4.1fV",StatusVoltage);
+          {
+            font_printf(-125,53,"%4.1fV", StatusVoltage);
+            //font_printf(-95,53,"%02.0f%%",StatusLoad);
+            font_printf(-95,53,"%3.0fC",StatusTemperature);
+          }
 
           lcd_update();
         }
@@ -474,7 +514,7 @@ static void acis_gui_task(void * argument)
 
       case MenuMainDrag :
       {
-        if(DelayDiff(now, display_timeout) > 150000)
+        if(DelayDiff(now, display_timeout) > 30000)
         {
           display_timeout = now;
           lcd_clear();
@@ -483,54 +523,128 @@ static void acis_gui_task(void * argument)
           font_printf(0,2,"Drag Measure");
           lcd_rect(0,15,128,1,1);
 
-          font_setFont(&rre_5x8);
-          for(int i = 0; i < sizeof(DragConfig) / sizeof(sConfigLinking); i++)
+          if(DragStatus <= 2)
           {
+            font_setFont(&rre_5x8);
+            for(int i = 0; i < sizeof(DragConfig) / sizeof(sConfigLinking); i++)
+            {
 
-            font_printf(3,18 + font_getHeight()*i,"%s:", DragConfig[i].name);
-            if(DragConfig[i].valuef)
-            {
-              if((!menuselecting || menuitem != i))
-                font_printf(-125,18 + font_getHeight()*i,"%03.0f", *DragConfig[i].valuef);
-              else if(menuitem == i && DelayDiff(now, select_timeout) < 500000)
-                font_printf(-125,18 + font_getHeight()*i,"> %03.0f", *DragConfig[i].valuef);
-              else if(DelayDiff(now, select_timeout) > 800000)
-                select_timeout = now;
-            }
-            else if(DragConfig[i].valuei)
-            {
-              if((!menuselecting || menuitem != i))
-                font_printf(-125,18 + font_getHeight()*i,"%d", *DragConfig[i].valuei);
-              else if(menuitem == i && DelayDiff(now, select_timeout) < 500000)
-                font_printf(-125,18 + font_getHeight()*i,"> %d", *DragConfig[i].valuei);
-              else if(DelayDiff(now, select_timeout) > 800000)
-                select_timeout = now;
+              font_printf(3,18 + font_getHeight()*i,"%s:", DragConfig[i].name);
+              if(DragConfig[i].valuef)
+              {
+                if((!menuselecting || menuitem != i))
+                  font_printf(-125,18 + font_getHeight()*i,"%03.0f", *DragConfig[i].valuef);
+                else if(menuitem == i && DelayDiff(now, select_timeout) < 500000)
+                  font_printf(-125,18 + font_getHeight()*i,"> %03.0f", *DragConfig[i].valuef);
+                else if(DelayDiff(now, select_timeout) > 800000)
+                  select_timeout = now;
+              }
+              else if(DragConfig[i].valuei)
+              {
+                if((!menuselecting || menuitem != i))
+                  font_printf(-125,18 + font_getHeight()*i,"%d", *DragConfig[i].valuei);
+                else if(menuitem == i && DelayDiff(now, select_timeout) < 500000)
+                  font_printf(-125,18 + font_getHeight()*i,"> %d", *DragConfig[i].valuei);
+                else if(DelayDiff(now, select_timeout) > 800000)
+                  select_timeout = now;
+              }
             }
           }
 
           font_setFont(&rre_bold_6x8);
-          if(DragStatus == 0)
-            font_printf(-125,53,"Ready");
-          else if(DragStatus == 1)
+          if(StatusSynchronized)
+          {
+            if(DragStatus == 0)
+              font_printf(-125,53,"Ready");
+            else if(DragStatus == 1)
+            {
+              if(DelayDiff(now, select_timeout) < 500000)
+                font_printf(-125,53,"SET");
+              else if(DelayDiff(now, select_timeout) > 800000)
+                select_timeout = now;
+            }
+            else if(DragStatus == 2)
+            {
+              if(DelayDiff(now, select_timeout) < 500000)
+                font_printf(-125,53,"GO!");
+              else if(DelayDiff(now, select_timeout) > 800000)
+                select_timeout = now;
+            }
+            else if(DragStatus == 3)
+            {
+              if(DelayDiff(now, select_timeout) < 500000)
+                font_printf(-125,53,"Done");
+              else if(DelayDiff(now, select_timeout) > 800000)
+                select_timeout = now;
+            }
+            else if(DragStatus == 4)
+            {
+              if(DelayDiff(now, select_timeout) < 500000)
+                font_printf(-125,53,"Fail");
+              else if(DelayDiff(now, select_timeout) > 800000)
+                select_timeout = now;
+            }
+          }
+          else
           {
             if(DelayDiff(now, select_timeout) < 500000)
-              font_printf(-125,53,"GO!");
+              font_printf(-125,53,"N/Sync");
             else if(DelayDiff(now, select_timeout) > 800000)
               select_timeout = now;
           }
 
+          if(DelayDiff(now, value_timeout) > 150000)
+          {
+            value_timeout = now;
+            rpm = StatusRPM;
+          }
+
           font_setFont(&rre_arialb_16);
-          font_printf(-90,34,"%03.0f RPM", DragRPM);
-          font_printf(-80,34+14,"%04.2f sec", DragTime);
+          font_printf(10,34+14,"%5.2f", DragTime);
+          font_printf(-80,34+14,"sec");
+          if(DragStatus <= 2)
+          {
+            font_printf(10,34,"%03.0f", rpm);
+            font_printf(-90,34,"RPM");
+          }
+          else if(DragGraphReady)
+          {
+            int cnt = DragPointsRawCount;
+            float x = -1.0f ,y = -1.0f , prevx = -1.0f , prevy = -1.0f ;
+            float max = DragRpmTo;
+            float min = DragRpmFrom;
+            float depmin = 0;
+            float depmax = DragTime * 1000000.0f;
+            float value, dep;
+            for(int i = 0; i < cnt; i++)
+            {
+              dep = DragPointsRaw[i].Time;
+              value = DragPointsRaw[i].RPM;
+              x = 126.0f * (dep - depmin) / (depmax-depmin) + 1.0f;
+              y = 63 - (value - min) / (max-min) * 47;
+
+              if(prevx == -1.0f && prevy == -1.0f)
+                prevx = x, prevy = y;
+
+              lcd_line(prevx, prevy, x, y, 1);
+
+              prevx = x;
+              prevy = y;
+            }
+          }
+          else
+          {
+            font_printf(0,30,"Please, wait...");
+          }
 
           lcd_update();
         }
         if(BUT_ENTER_PRESS)
         {
-          if(!BUT_CANCEL_PRESS && BUT_ENTER_TIME > 500)
+          if(StatusSynchronized && !BUT_CANCEL_PRESS && BUT_ENTER_TIME > 500)
           {
             select_timeout = now;
-            if(DragStatus == 0)
+            if(DragStatus == 0 || DragStatus >= 3)
             {
               menuselecting = 0;
               DragStatus = 1;
@@ -540,14 +654,14 @@ static void acis_gui_task(void * argument)
         else if(BUT_ENTER)
         {
           display_timeout = 0;
-          if(!menuselecting)
+          if(DragStatus >= 3)
+            DragStatus = 0;
+          else if(!menuselecting && DragStatus == 0)
           {
-            if(DragStatus == 0 || DragStatus == 3)
-            {
               menuselecting = 1;
               menuitem = 0;
               select_timeout = now;
-            }
+
           }
           else
           {
@@ -578,7 +692,7 @@ static void acis_gui_task(void * argument)
         {
           display_timeout = 0;
           if(BUT_LEFT_TIME > 100) BUT_LEFT_TIME -= 100;
-          if(menuselecting)
+          if(menuselecting && StatusSynchronized)
           {
             if(DragConfig[menuitem].valuef)
             {
@@ -602,7 +716,7 @@ static void acis_gui_task(void * argument)
         {
           display_timeout = 0;
           if(BUT_RIGHT_TIME > 100) BUT_RIGHT_TIME -= 100;
-          if(menuselecting)
+          if(menuselecting && StatusSynchronized)
           {
             if(DragConfig[menuitem].valuef)
             {
@@ -687,12 +801,24 @@ static void acis_gui_task(void * argument)
               }
               else if(CommonConfig[menuselected].valuei)
               {
-                if((!menuselecting || menuitem != menuselected))
-                  font_printf(-125,18 + font_getHeight()*i,"%d", *CommonConfig[menuselected].valuei + CommonConfig[menuselected].guicorrective);
-                else if(menuitem == menuselected && DelayDiff(now, select_timeout) < 500000)
-                  font_printf(-125,18 + font_getHeight()*i,"> %d", *CommonConfig[menuselected].valuei + CommonConfig[menuselected].guicorrective);
-                else if(DelayDiff(now, select_timeout) > 800000)
-                  select_timeout = now;
+                if(CommonConfig[menuselected].min == 0 && CommonConfig[menuselected].max == 1 && CommonConfig[menuselected].step == 1 && CommonConfig[menuselected].guicorrective == 0 && CommonConfig[menuselected].guimultiplier == 1.0f)
+                {
+                  if((!menuselecting || menuitem != menuselected))
+                    font_printf(-125,18 + font_getHeight()*i,"%s", *CommonConfig[menuselected].valuei ? "Y" : "N");
+                  else if(menuitem == menuselected && DelayDiff(now, select_timeout) < 500000)
+                    font_printf(-125,18 + font_getHeight()*i,"> %s", *CommonConfig[menuselected].valuei ? "Y" : "N");
+                  else if(DelayDiff(now, select_timeout) > 800000)
+                    select_timeout = now;
+                }
+                else
+                {
+                  if((!menuselecting || menuitem != menuselected))
+                    font_printf(-125,18 + font_getHeight()*i,"%d", *CommonConfig[menuselected].valuei + CommonConfig[menuselected].guicorrective);
+                  else if(menuitem == menuselected && DelayDiff(now, select_timeout) < 500000)
+                    font_printf(-125,18 + font_getHeight()*i,"> %d", *CommonConfig[menuselected].valuei + CommonConfig[menuselected].guicorrective);
+                  else if(DelayDiff(now, select_timeout) > 800000)
+                    select_timeout = now;
+                }
               }
             }
           }
@@ -834,9 +960,9 @@ static void acis_gui_task(void * argument)
             menuselected = menufirst + i;
             if(menuselected < sizeof(TableInitial) / sizeof(sConfigLinking))
             {
-              font_printf(3,18 + font_getHeight()*i,"%s:", TableInitial[menuselected].name);
               if(TableInitial[menuselected].valuef)
               {
+                font_printf(3,18 + font_getHeight()*i,"%s:", TableInitial[menuselected].name);
                 if((!menuselecting || menuitem != menuselected))
                   font_printf(-125,18 + font_getHeight()*i,"%.0f", *TableInitial[menuselected].valuef + TableInitial[menuselected].guicorrective);
                 else if(menuitem == menuselected && DelayDiff(now, select_timeout) < 500000)
@@ -846,10 +972,23 @@ static void acis_gui_task(void * argument)
               }
               else if(TableInitial[menuselected].valuei)
               {
+                font_printf(3,18 + font_getHeight()*i,"%s:", TableInitial[menuselected].name);
                 if((!menuselecting || menuitem != menuselected))
                   font_printf(-125,18 + font_getHeight()*i,"%d", *TableInitial[menuselected].valuei + TableInitial[menuselected].guicorrective);
                 else if(menuitem == menuselected && DelayDiff(now, select_timeout) < 500000)
                   font_printf(-125,18 + font_getHeight()*i,"> %d", *TableInitial[menuselected].valuei + TableInitial[menuselected].guicorrective);
+                else if(DelayDiff(now, select_timeout) > 800000)
+                  select_timeout = now;
+              }
+              else
+              {
+                if((!menuselecting || menuitem != menuselected))
+                  font_printf(3,18 + font_getHeight()*i,"%s", TableInitial[menuselected].name);
+                else if(menuitem == menuselected && DelayDiff(now, select_timeout) < 500000)
+                {
+                  font_printf(3,18 + font_getHeight()*i,"%s", TableInitial[menuselected].name);
+                  font_printf(-125,18 + font_getHeight()*i,"<");
+                }
                 else if(DelayDiff(now, select_timeout) > 800000)
                   select_timeout = now;
               }
@@ -869,6 +1008,10 @@ static void acis_gui_task(void * argument)
           }
           else
           {
+            if(TableInitial[menuitem].valuef == NULL && TableInitial[menuitem].valuei == NULL &&  TableInitial[menuitem].menuitem > MenuUndefined)
+            {
+              eMenuItem = TableInitial[menuitem].menuitem;
+            }
             menuselecting = 0;
           }
           BUT_UP = 0;
@@ -876,6 +1019,7 @@ static void acis_gui_task(void * argument)
           BUT_LEFT = 0;
           BUT_RIGHT = 0;
           BUT_ENTER = 0;
+          BUT_CANCEL = 0;
         }
         if(BUT_CANCEL)
         {
@@ -1439,7 +1583,10 @@ static void acis_gui_task(void * argument)
             {
               dep = ((&TableOffset(tablesetupitem->valuedep, float))[i]);
               value = ((&TableOffset(tablesetupitem->valuef, float))[i]);
-              x = 126.0f * (dep - depmin) / (depmax-depmin) + 1.0f;
+              if(eMenuItem == MenuTableSetupIdleIgnitions)
+                x = 126.0f * log10f(1.0f + ((dep - depmin) / (depmax-depmin) * 9.0f)) + 1.0f;
+              else
+                x = 126.0f * (dep - depmin) / (depmax-depmin) + 1.0f;
               y = 63 - (value - min) / (max-min) * 32;
 
               if(prevx == -1.0f && prevy == -1.0f)
@@ -1566,8 +1713,7 @@ static void acis_gui_task(void * argument)
         if(BUT_DOWN)
         {
           display_timeout = 0;
-          if(++menuitem2 >= *tablesetupitem->valuei) menuitem2 = *tablesetupitem->valuei - 1;
-          menufirst2 = menuitem2;
+          menuitem2++;
           select_timeout = now;
           BUT_DOWN = 0;
         }
@@ -1575,11 +1721,334 @@ static void acis_gui_task(void * argument)
         if(BUT_UP)
         {
           display_timeout = 0;
-          if(--menuitem2 < 0) menuitem2 = 0;
-          menufirst2 = menuitem2;
+          menuitem2--;
           select_timeout = now;
           BUT_UP = 0;
         }
+
+        if(menuitem2 < 0) menuitem2 = 0, display_timeout = 0;
+        if(menuitem2 >= *tablesetupitem->valuei) menuitem2 = *tablesetupitem->valuei - 1, display_timeout = 0;;
+        menufirst2 = menuitem2;
+
+        break;
+      }
+      case MenuTableSetupIgnitionsSelect :
+      {
+        table = &TableOffset(tablesetupitem->valuei, sAcisIgnTable);
+        if(DelayDiff(now, display_timeout) > 30000)
+        {
+          if(DelayDiff(now, value_timeout) > 150000)
+          {
+            value_timeout = now;
+            rpm = StatusRPM;
+            pres = StatusPressure;
+            ign = StatusIgnition-table->octane_corrector;
+          }
+          lcd_clear();
+          lcd_rect(0,0,128,64,1);
+          font_setFont(&rre_5x8);
+          font_printf(2,2,"Igns.%dx%d", table->pressures_count, table->rotates_count);
+          lcd_rect(0,11,128,1,1);
+
+          for(int i = 0; i < 2; i++)
+          {
+            menuselected = menufirst3 + i;
+            if(menuselected < table->pressures_count)
+            {
+              if(menuitem3 != menuselected)
+              {
+                font_printf(3,14 + font_getHeight()*i,"Pres.%04.0f", table->pressures[menuselected]);
+              }
+              else if(menuitem3 == menuselected && DelayDiff(now, select_timeout) < 500000)
+              {
+                font_printf(-125,14 + font_getHeight()*i,"<");
+                font_printf(3,14 + font_getHeight()*i,"Pres.%04.0f", table->pressures[menuselected]);
+              }
+              else if(DelayDiff(now, select_timeout) > 800000)
+                select_timeout = now;
+
+            }
+          }
+
+          lcd_rect(1,24,126,1,1);
+          lcd_rect_solid(1,25,126,font_getHeight(),0);
+
+          int cnt = table->rotates_count;
+          float x = -1.0f ,y = -1.0f , prevx = -1.0f , prevy = -1.0f ;
+          float max = -INFINITY;
+          float min = 0;
+          float depmin = INFINITY;
+          float depmax = -INFINITY;
+          float value, dep;
+          float cx,cy;
+          for(int j = 0; j < table->pressures_count; j++)
+          {
+            for(int i = 0; i < cnt; i++)
+            {
+              value = table->ignitions[j][i];
+              if(value > max)
+                max = value;
+              if(value < min)
+                min = value;
+            }
+          }
+
+          for(int i = 0; i < cnt; i++)
+          {
+            dep = table->rotates[i];
+            if(dep > depmax)
+              depmax = dep;
+            if(dep < depmin)
+              depmin = dep;
+          }
+          for(int i = 0; i < cnt; i++)
+          {
+            dep = table->rotates[i];
+            value = table->ignitions[menuitem3][i];
+            //x = 126.0f * (dep - depmin) / (depmax-depmin) + 1.0f;
+            x = (126.0f * log10f(1.0f + (dep - depmin) / (depmax-depmin) * 9.0f)) + 1.0f;
+            y = 63 - (value - min) / (max-min) * 37;
+
+            if(prevx == -1.0f && prevy == -1.0f)
+              prevx = x, prevy = y;
+
+            lcd_line(prevx, prevy, x, y, 1);
+
+            prevx = x;
+            prevy = y;
+          }
+
+          cx = (126.0f * log10f(1.0f + (StatusRPM - depmin) / (depmax-depmin) * 9.0f)) + 1.0f;
+          cy = 63 - (StatusIgnition - table->octane_corrector - min) / (max-min) * 37;
+
+          if(cy > 22 && cx > 0 && cx < 128)
+            lcd_circle5x5fill(cx,cy);
+
+          font_printf(65,2,"%03.0f", rpm);
+          font_printf(93,2,"%04.0f", pres);
+          font_printf(94,63 - font_getHeight(),"%5.1fd", ign);
+
+
+          lcd_update();
+        }
+
+        if(BUT_CANCEL)
+        {
+          display_timeout = 0;
+          eMenuItem = MenuTableSetup;
+          BUT_UP = 0;
+          BUT_DOWN = 0;
+          BUT_LEFT = 0;
+          BUT_RIGHT = 0;
+          BUT_CANCEL = 0;
+          BUT_ENTER = 0;
+        }
+
+        if(BUT_ENTER)
+        {
+          display_timeout = 0;
+          eMenuItem = MenuTableSetupIgnitions;
+          select_timeout = now;
+          value_timeout = 0;
+          BUT_UP = 0;
+          BUT_DOWN = 0;
+          BUT_LEFT = 0;
+          BUT_RIGHT = 0;
+          BUT_CANCEL = 0;
+          BUT_ENTER = 0;
+        }
+
+        if(BUT_DOWN)
+        {
+          display_timeout = 0;
+          menuitem3++;
+          select_timeout = now;
+          BUT_DOWN = 0;
+        }
+
+        if(BUT_UP)
+        {
+          display_timeout = 0;
+          menuitem3--;
+          select_timeout = now;
+          BUT_UP = 0;
+        }
+
+        if(menuitem3 >= table->pressures_count) menuitem3 = table->pressures_count - 1, display_timeout = 0;
+        if(menuitem3 < 0) menuitem3 = 0, display_timeout = 0;
+        menufirst3 = menuitem3;
+
+        break;
+      }
+      case MenuTableSetupIgnitions :
+      {
+        if(DelayDiff(now, display_timeout) > 30000)
+        {
+          if(DelayDiff(now, value_timeout) > 150000)
+          {
+            value_timeout = now;
+            rpm = StatusRPM;
+            pres = StatusPressure;
+            ign = StatusIgnition - table->octane_corrector;
+          }
+          lcd_clear();
+          lcd_rect(0,0,128,64,1);
+          font_setFont(&rre_5x8);
+          font_printf(2,2,"Igns.%dx%d", menuitem3, table->rotates_count);
+          lcd_rect(0,11,128,1,1);
+
+          for(int i = 0; i < 2; i++)
+          {
+            menuselected = menufirst4 + i;
+            if(menuselected < table->rotates_count)
+            {
+              font_printf(3,14 + font_getHeight()*i,"RPM %03.0f", table->rotates[menuselected]);
+              if(menuitem4 != menuselected)
+              {
+                font_printf(-125,14 + font_getHeight()*i,"%.1f", table->ignitions[menuitem3][menuselected]);
+              }
+              else if(menuitem4 == menuselected && DelayDiff(now, select_timeout) < 500000)
+              {
+                font_printf(-125,14 + font_getHeight()*i,"> %.1f", table->ignitions[menuitem3][menuselected]);
+              }
+              else if(DelayDiff(now, select_timeout) > 800000)
+                select_timeout = now;
+
+            }
+          }
+
+          lcd_rect(1,24,126,1,1);
+          lcd_rect_solid(1,25,126,font_getHeight(),0);
+
+          int cnt = table->rotates_count;
+          float x = -1.0f ,y = -1.0f , prevx = -1.0f , prevy = -1.0f ;
+          float max = -INFINITY;
+          float min = 0;
+          float depmin = INFINITY;
+          float depmax = -INFINITY;
+          float value, dep;
+          float cx,cy;
+          for(int j = 0; j < table->pressures_count; j++)
+          {
+            for(int i = 0; i < cnt; i++)
+            {
+              value = table->ignitions[j][i];
+              if(value > max)
+                max = value;
+              if(value < min)
+                min = value;
+            }
+          }
+
+          for(int i = 0; i < cnt; i++)
+          {
+            dep = table->rotates[i];
+            if(dep > depmax)
+              depmax = dep;
+            if(dep < depmin)
+              depmin = dep;
+          }
+          for(int i = 0; i < cnt; i++)
+          {
+            dep = table->rotates[i];
+            value = table->ignitions[menuitem3][i];
+            x = (126.0f * log10f(1.0f + (dep - depmin) / (depmax-depmin) * 9.0f)) + 1.0f;
+            y = 63 - (value - min) / (max-min) * 37;
+
+            if(prevx == -1.0f && prevy == -1.0f)
+              prevx = x, prevy = y;
+
+            lcd_line(prevx, prevy, x, y, 1);
+
+            prevx = x;
+            prevy = y;
+          }
+
+          cx = (126.0f * log10f(1.0f + (StatusRPM - depmin) / (depmax-depmin) * 9.0f)) + 1.0f;
+          cy = 63 - (StatusIgnition - table->octane_corrector - min) / (max-min) * 37;
+          if(cy > 22 && cx > 0 && cx < 128)
+            lcd_circle5x5fill(cx,cy);
+
+          cx = (126.0f * log10f(1.0f + (table->rotates[menuitem4] - depmin) / (depmax-depmin) * 9.0f)) + 1.0f;
+          cy = 63 - (table->ignitions[menuitem3][menuitem4] - min) / (max-min) * 37;
+          if(cy > 22 && cx > 0 && cx < 128)
+            lcd_circle5x5(cx,cy);
+
+          font_printf(65,2,"%03.0f", rpm);
+          font_printf(93,2,"%04.0f", pres);
+          font_printf(94,63 - font_getHeight(),"%5.1fd", ign);
+
+
+          lcd_update();
+        }
+
+        if(BUT_LEFT || (BUT_LEFT_PRESS && BUT_LEFT_TIME > 400))
+        {
+          display_timeout = 0;
+          if(BUT_LEFT_TIME > 100) BUT_LEFT_TIME -= 40;
+          if(StatusSynchronized && tablesetupitem->step)
+          {
+            if(table->ignitions[menuitem3][menuitem4] - tablesetupitem->step < tablesetupitem->min)
+              table->ignitions[menuitem3][menuitem4] = tablesetupitem->min;
+            else table->ignitions[menuitem3][menuitem4] -= tablesetupitem->step;
+
+            acis_apply_parameter(&table->ignitions[menuitem3][menuitem4], sizeof(float));
+          }
+          select_timeout = now;
+          BUT_LEFT = 0;
+
+        }
+
+        if(BUT_RIGHT || (BUT_RIGHT_PRESS && BUT_RIGHT_TIME > 400))
+        {
+          display_timeout = 0;
+          if(BUT_RIGHT_TIME > 100) BUT_RIGHT_TIME -= 40;
+          if(StatusSynchronized && tablesetupitem->step)
+          {
+            if(table->ignitions[menuitem3][menuitem4] + tablesetupitem->step > tablesetupitem->max)
+              table->ignitions[menuitem3][menuitem4] = tablesetupitem->max;
+            else table->ignitions[menuitem3][menuitem4] += tablesetupitem->step;
+
+            acis_apply_parameter(&table->ignitions[menuitem3][menuitem4], sizeof(float));
+          }
+          select_timeout = now;
+          BUT_RIGHT = 0;
+
+        }
+
+        if(BUT_CANCEL)
+        {
+          display_timeout = 0;
+          eMenuItem = MenuTableSetupIgnitionsSelect;
+          value_timeout = 0;
+          select_timeout = now;
+          BUT_UP = 0;
+          BUT_DOWN = 0;
+          BUT_LEFT = 0;
+          BUT_RIGHT = 0;
+          BUT_CANCEL = 0;
+          BUT_ENTER = 0;
+        }
+
+        if(BUT_DOWN)
+        {
+          display_timeout = 0;
+          menuitem4++;
+          select_timeout = now;
+          BUT_DOWN = 0;
+        }
+
+        if(BUT_UP)
+        {
+          display_timeout = 0;
+          menuitem4--;
+          select_timeout = now;
+          BUT_UP = 0;
+        }
+
+        if(menuitem4 >= table->rotates_count) menuitem4 = table->rotates_count - 1, display_timeout = 0;
+        if(menuitem4 < 0) menuitem4 = 0, display_timeout = 0;
+        menufirst4 = menuitem4;
 
         break;
       }
@@ -1617,6 +2086,37 @@ static void acis_gui_task(void * argument)
         }
         break;
       }
+
+      case MenuTableConfigSave :
+      {
+        if(DelayDiff(now, display_timeout) > 50000)
+        {
+          lcd_clear();
+          lcd_rect(0,0,128,64,1);
+          font_setFont(&rre_arialb_16);
+          font_printf(0,18,"Saving...");
+          eMenuItem = MenuSynchronizing;
+          NeedSave = 1;
+          lcd_update();
+        }
+        break;
+      }
+
+      case MenuTableConfigRestore :
+      {
+        if(DelayDiff(now, display_timeout) > 50000)
+        {
+          lcd_clear();
+          lcd_rect(0,0,128,64,1);
+          font_setFont(&rre_arialb_16);
+          font_printf(0,18,"Restoring...");
+          eMenuItem = MenuSynchronizing;
+          NeedLoad = 1;
+          lcd_update();
+        }
+        break;
+      }
+
       case MenuSyncError :
       {
         if(DelayDiff(now, display_timeout) > 500000)
@@ -1630,7 +2130,10 @@ static void acis_gui_task(void * argument)
           lcd_update();
         }
         if(DelayDiff(now, last_menu_switch) > 2000000)
+        {
+          SyncError = 0;
           eMenuItem = MenuMain;
+        }
         break;
       }
       default :
@@ -1683,7 +2186,9 @@ static void acis_sender_task(void * argument)
 
 void acis_main_task(void * argument)
 {
+  uint32_t DragStatusOld = 0;
   uint32_t LastPacket = 0;
+  uint32_t LastDragPacket = 0;
   uint32_t LastGeneralStatusPacket = 0;
   uint32_t LastFuelSwitchPacket = 0;
   uint8_t LastFuelSwitchPos = 0xFF;
@@ -1692,6 +2197,7 @@ void acis_main_task(void * argument)
   protInit(&fifoSendingQueue, buffSendingQueue, 1, SENDING_QUEUE_SIZE);
   tGuiHandler = osThreadNew(acis_gui_task, NULL, &cTaskAttributes);
   tSenderHandler = osThreadNew(acis_sender_task, NULL, &cTaskAttributes);
+  memset(DragPointsRaw, 0, sizeof(DragPointsRaw));
   StatusSynchronizing = 1; //Read config
   while(1)
   {
@@ -1722,14 +2228,17 @@ void acis_main_task(void * argument)
           if(SyncSize == 0)
           {
             SyncSize = 1;
+            FlashRequestDone = 0;
             SyncRequestDone = 0;
             PK_RestoreConfig.Destination = etrACIS;
             protPushSequence(&fifoSendingQueue, &PK_RestoreConfig, sizeof(PK_RestoreConfig));
+            LastPacket = now;
           }
           else
           {
-            if(SyncRequestDone == 0)
+            if(FlashRequestDone)
             {
+              FlashRequestDone = 0;
               SyncRequestDone = 0;
               SyncStep++;
               NeedLoad = 0;
@@ -1808,7 +2317,7 @@ void acis_main_task(void * argument)
             }
 
           }
-          else if(DelayDiff(now, LastPacket) > 500000 || SyncError > 0)
+          else if(DelayDiff(now, LastPacket) > 1000000 || SyncError > 0)
           {
             StatusSynchronizing = 0;
             SyncStep = 0;
@@ -1879,7 +2388,7 @@ void acis_main_task(void * argument)
             }
 
           }
-          else if(DelayDiff(now, LastPacket) > 500000 || SyncError > 0)
+          else if(DelayDiff(now, LastPacket) > 1000000 || SyncError > 0)
           {
             StatusSynchronizing = 0;
             SyncStep = 0;
@@ -1971,7 +2480,7 @@ void acis_main_task(void * argument)
             }
 
           }
-          else if(DelayDiff(now, LastPacket) > 500000 || SyncError > 0)
+          else if(DelayDiff(now, LastPacket) > 1000000 || SyncError > 0)
           {
             StatusSynchronizing = 0;
             SyncStep = 0;
@@ -2052,7 +2561,7 @@ void acis_main_task(void * argument)
             }
 
           }
-          else if(DelayDiff(now, LastPacket) > 500000 || SyncError > 0)
+          else if(DelayDiff(now, LastPacket) > 1000000 || SyncError > 0)
           {
             StatusSynchronizing = 0;
             SyncStep = 0;
@@ -2069,20 +2578,23 @@ void acis_main_task(void * argument)
           if(SyncSize == 0)
           {
             SyncSize = 1;
+            FlashRequestDone = 0;
             SyncRequestDone = 0;
             PK_SaveConfig.Destination = etrACIS;
             protPushSequence(&fifoSendingQueue, &PK_SaveConfig, sizeof(PK_SaveConfig));
+            LastPacket = now;
           }
           else
           {
-            if(SyncRequestDone == 0)
+            if(FlashRequestDone)
             {
+              FlashRequestDone = 0;
               SyncRequestDone = 0;
               SyncStep++;
               NeedSave = 0;
               SyncSize = 0;
             }
-            else if(DelayDiff(now, LastPacket) > 5000000 || SyncError > 0)
+            else if(DelayDiff(now, LastPacket) > 15000000 || SyncError > 0)
             {
               StatusSynchronizing = 0;
               SyncStep = 0;
@@ -2109,7 +2621,7 @@ void acis_main_task(void * argument)
 
     }
 
-    if(DelayDiff(now, LastGeneralStatusPacket) > 100000)
+    if(DelayDiff(now, LastGeneralStatusPacket) > (eMenuItem >= MenuTableSetupIgnitionsSelect ? 30000 : 50000))
     {
       LastGeneralStatusPacket = now;
       PK_GeneralStatusRequest.Destination = etrACIS;
@@ -2125,6 +2637,45 @@ void acis_main_task(void * argument)
       PK_FuelSwitch.FuelSwitchPos = FuelSwitchPos;
       protPushSequence(&fifoSendingQueue, &PK_FuelSwitch, sizeof(PK_FuelSwitch));
 
+    }
+
+    uint32_t drag = DragStatus;
+    if(drag != DragStatusOld)
+    {
+      DragStatusOld = drag;
+      switch(drag)
+      {
+        case 0 :
+          DragGraphReady = 0;
+          PK_DragStop.Destination = etrACIS;
+          PK_DragStop.FromRPM = DragRpmFrom;
+          PK_DragStop.ToRPM = DragRpmTo;
+          protPushSequence(&fifoSendingQueue, &PK_DragStop, sizeof(PK_DragStop));
+          LastDragPacket = now;
+          break;
+        case 1 :
+          DragGraphReady = 0;
+          PK_DragStart.Destination = etrACIS;
+          PK_DragStart.FromRPM = DragRpmFrom;
+          PK_DragStart.ToRPM = DragRpmTo;
+          protPushSequence(&fifoSendingQueue, &PK_DragStart, sizeof(PK_DragStart));
+          LastDragPacket = now;
+          break;
+        default :
+          break;
+      }
+    }
+
+    if(drag == 1 || drag == 2)
+    {
+      if(DelayDiff(now, LastDragPacket) > 30000)
+      {
+        PK_DragUpdateRequest.Destination = etrACIS;
+        PK_DragUpdateRequest.FromRPM = DragRpmFrom;
+        PK_DragUpdateRequest.ToRPM = DragRpmTo;
+        protPushSequence(&fifoSendingQueue, &PK_DragUpdateRequest, sizeof(PK_DragUpdateRequest));
+        LastDragPacket = now;
+      }
     }
 
     osDelay(1);
@@ -2174,7 +2725,7 @@ void acis_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t lengt
         PK_Copy(&PK_GeneralStatusResponse, msgBuf);
         StatusIgnition = PK_GeneralStatusResponse.IgnitionAngle;
         StatusLoad = PK_GeneralStatusResponse.Load;
-        StatusRPM = PK_GeneralStatusResponse.RPM;
+        StatusRPM = PK_GeneralStatusResponse.RPM ;
         StatusPressure = PK_GeneralStatusResponse.Pressure;
         StatusVoltage = PK_GeneralStatusResponse.Voltage;
         StatusTemperature = PK_GeneralStatusResponse.Temperature;
@@ -2189,7 +2740,7 @@ void acis_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t lengt
         if(PK_RestoreConfigAcknowledge.ErrorCode == 0)
         {
           if(StatusSynchronizing == 1 && NeedLoad)
-            SyncRequestDone = 1;
+            FlashRequestDone = 1;
         }
         else SyncError = PK_RestoreConfigAcknowledge.ErrorCode + 100;
         break;
@@ -2199,7 +2750,7 @@ void acis_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t lengt
         if(PK_SaveConfigAcknowledge.ErrorCode == 0)
         {
           if(StatusSynchronizing == 2 && NeedSave)
-            SyncRequestDone = 1;
+            FlashRequestDone = 1;
         }
         else SyncError = PK_SaveConfigAcknowledge.ErrorCode + 120;
         break;
@@ -2326,6 +2877,55 @@ void acis_parse_command(eTransChannels xChaSrc, uint8_t * msgBuf, uint32_t lengt
         {
           if(StatusSynchronizing == 2) SyncError = PK_TableMemoryAcknowledge.ErrorCode + 80;
           if(Applying) { Applying = 0; ApplyError = PK_TableMemoryAcknowledge.ErrorCode + 80; }
+        }
+        break;
+
+      case PK_DragUpdateResponseID :
+        PK_Copy(&PK_DragUpdateResponse, msgBuf);
+        DragPointsRawCount = 0;
+        DragGraphReady = 0;
+        if(PK_DragUpdateResponse.ErrorCode > 0)
+          DragStatus = 4;
+        else if(DragStatus == 1 && PK_DragUpdateResponse.Started)
+          DragStatus = 2;
+        else if(PK_DragUpdateResponse.Completed)
+          DragStatus = 3;
+        DragTime = PK_DragUpdateResponse.Time / 1000000.0f;
+
+        if(DragStatus == 3 || DragStatus == 4)
+        {
+          DragPointsRawCount = PK_DragUpdateResponse.TotalPoints;
+          DragPointsRawCountPtr = 0;
+          if(DragPointsRawCount - DragPointsRawCountPtr > 0)
+          {
+            PK_DragPointRequest.Destination = etrACIS;
+            PK_DragPointRequest.FromRPM = DragRpmFrom;
+            PK_DragPointRequest.ToRPM = DragRpmTo;
+            PK_DragPointRequest.PointNumber = DragPointsRawCountPtr;
+            protPushSequence(&fifoSendingQueue, &PK_DragPointRequest, sizeof(PK_DragPointRequest));
+          }
+        }
+        break;
+
+      case PK_DragPointResponseID :
+        PK_Copy(&PK_DragPointResponse, msgBuf);
+        if(DragPointsRawCountPtr == PK_DragPointRequest.PointNumber && DragStatus > 2)
+        {
+          DragPointsRaw[PK_DragPointResponse.PointNumber] = PK_DragPointResponse.Point;
+          DragPointsRawCountPtr++;
+          if(DragPointsRawCount - DragPointsRawCountPtr > 0)
+          {
+            DragGraphReady = 0;
+            PK_DragPointRequest.Destination = etrACIS;
+            PK_DragPointRequest.FromRPM = DragRpmFrom;
+            PK_DragPointRequest.ToRPM = DragRpmTo;
+            PK_DragPointRequest.PointNumber = DragPointsRawCountPtr;
+            protPushSequence(&fifoSendingQueue, &PK_DragPointRequest, sizeof(PK_DragPointRequest));
+          }
+          else
+          {
+            DragGraphReady = 1;
+          }
         }
         break;
 

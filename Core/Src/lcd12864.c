@@ -501,6 +501,25 @@ void lcd_circle5x5(int16_t x, int16_t y)
       lcd_clearpoint(x+i-1,y+j-1);
 }
 
+void lcd_circle5x5fill(int16_t x, int16_t y)
+{
+  lcd_drawpoint(x-2,y-1);
+  lcd_drawpoint(x-2,y);
+  lcd_drawpoint(x-2,y+1);
+  lcd_drawpoint(x+2,y+1);
+  lcd_drawpoint(x+2,y);
+  lcd_drawpoint(x+2,y-1);
+  lcd_drawpoint(x-1,y-2);
+  lcd_drawpoint(x,y-2);
+  lcd_drawpoint(x+1,y-2);
+  lcd_drawpoint(x-1,y+2);
+  lcd_drawpoint(x,y+2);
+  lcd_drawpoint(x+1,y+2);
+  for(int i = 0; i < 3; i++)
+    for(int j = 0; j < 3; j++)
+      lcd_drawpoint(x+i-1,y+j-1);
+}
+
 void showFont(char *name)
 {
   TIM2->CCR3 = 255;
