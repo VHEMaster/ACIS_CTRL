@@ -19,10 +19,10 @@ static inline void lcd_data(uint8_t value)
   HAL_GPIO_WritePin(LCD_RW_GPIO_Port, LCD_RW_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LCD_RS_GPIO_Port, LCD_RS_Pin, GPIO_PIN_SET);
   GPIOA->BSRR = bsrr;
-  DelayUs(2);
+  DelayUs(3);
   taskENTER_CRITICAL();
   HAL_GPIO_WritePin(LCD_EN_GPIO_Port, LCD_EN_Pin, GPIO_PIN_SET);
-  DelayUs(2);
+  DelayUs(3);
   HAL_GPIO_WritePin(LCD_EN_GPIO_Port, LCD_EN_Pin, GPIO_PIN_RESET);
   taskEXIT_CRITICAL();
   DelayUs(1);
@@ -35,10 +35,10 @@ static inline void lcd_command(uint8_t value)
   HAL_GPIO_WritePin(LCD_RW_GPIO_Port, LCD_RW_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LCD_RS_GPIO_Port, LCD_RS_Pin, GPIO_PIN_RESET);
   GPIOA->BSRR = bsrr;
-  DelayUs(2);
+  DelayUs(3);
   taskENTER_CRITICAL();
   HAL_GPIO_WritePin(LCD_EN_GPIO_Port, LCD_EN_Pin, GPIO_PIN_SET);
-  DelayUs(2);
+  DelayUs(3);
   HAL_GPIO_WritePin(LCD_EN_GPIO_Port, LCD_EN_Pin, GPIO_PIN_RESET);
   taskEXIT_CRITICAL();
   DelayUs(1);
@@ -57,14 +57,12 @@ inline void lcd_update(void)
 
     HAL_GPIO_WritePin(LCD_CS1_GPIO_Port, LCD_CS1_Pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(LCD_CS2_GPIO_Port, LCD_CS2_Pin, GPIO_PIN_RESET);
-    for(int i = 0; i < 64; i++)
-    {
+    for(int i = 0; i < 64; i++) {
       lcd_data(lcd_buffer[j][i]);
     }
     HAL_GPIO_WritePin(LCD_CS1_GPIO_Port, LCD_CS1_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(LCD_CS2_GPIO_Port, LCD_CS2_Pin, GPIO_PIN_SET);
-    for(int i = 64; i < 128; i++)
-    {
+    for(int i = 64; i < 128; i++) {
       lcd_data(lcd_buffer[j][i]);
     }
   }
@@ -89,13 +87,13 @@ inline void lcd_clear(void)
       lcd_buffer[i][j] = 0;
 }
 
-inline void lcd_drawpoint(uint8_t x, uint8_t y)
+inline void lcd_drawpoint(uint16_t x, uint16_t y)
 {
   if(x < 128 && y < 64)
     lcd_buffer[y / 8][x] |= 1 << (y % 8);
 }
 
-inline void lcd_clearpoint(uint8_t x, uint8_t y)
+inline void lcd_clearpoint(uint16_t x, uint16_t y)
 {
   if(x < 128 && y < 64)
     lcd_buffer[y / 8][x] &= ~(1 << (y % 8));

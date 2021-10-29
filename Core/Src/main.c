@@ -28,8 +28,6 @@
 #include "lcd12864.h"
 #include "RREFont.h"
 
-#define CRC_POLY 0xA001 //0x8005
-
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -120,7 +118,7 @@ static void showlogo(void)
   font_printStr(2,32,"Advanced Car");
   font_printStr(12,46,"Ignition System");
   lcd_update();
-  DelayMs(1000);
+  DelayMs(500);
 }
 
 int main(void)
@@ -145,7 +143,9 @@ int main(void)
 
   __HAL_DBGMCU_FREEZE_TIM5();
 
+#ifdef CRC_HW
   CRC16_RegisterHardware(&hcrc);
+#endif
 
   HAL_GPIO_WritePin(USB_RST_GPIO_Port, USB_RST_Pin, GPIO_PIN_SET);
 
@@ -247,9 +247,9 @@ static void MX_CRC_Init(void)
   hcrc.Instance = CRC;
   hcrc.Init.DefaultPolynomialUse = DEFAULT_POLYNOMIAL_DISABLE;
   hcrc.Init.DefaultInitValueUse = DEFAULT_INIT_VALUE_DISABLE;
-  hcrc.Init.GeneratingPolynomial = CRC_POLY;
+  hcrc.Init.GeneratingPolynomial = 0x8005;
   hcrc.Init.CRCLength = CRC_POLYLENGTH_16B;
-  hcrc.Init.InitValue = 0;
+  hcrc.Init.InitValue = 0xFFFF;
   hcrc.Init.InputDataInversionMode = CRC_INPUTDATA_INVERSION_BYTE;
   hcrc.Init.OutputDataInversionMode = CRC_OUTPUTDATA_INVERSION_ENABLE;
   hcrc.InputDataFormat = CRC_INPUTDATA_FORMAT_BYTES;
@@ -333,7 +333,7 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 422;
+  htim2.Init.Prescaler = 200;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 255;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;

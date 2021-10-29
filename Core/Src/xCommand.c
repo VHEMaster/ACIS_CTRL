@@ -45,7 +45,8 @@ static inline void exitcritical(void)
 #endif
 
 #define UART_DMA_BUFFER (MAX_PACK_LEN * 2)
-#define RETRIES_TIMEOUT 5000
+#define RETRIES_TIMEOUT_ACIS 10000
+#define RETRIES_TIMEOUT_PC 50000
 #define RETRIES_MAX 20
 
 typedef struct
@@ -58,6 +59,8 @@ typedef struct
     uint8_t BufParser[MAX_PACK_LEN];
     UART_HandleTypeDef * xUart;
     eTransChannels xChannel;
+    uint16_t ReceivedPackets[10];
+    uint16_t ReceivedPacketId;
     sProFIFO xTxFifo;
     sProFIFO xRxFifo;
     uint32_t dataReceiving;
@@ -248,7 +251,7 @@ int8_t xSender(eTransChannels xChaDest, uint8_t* xMsgPtr, uint32_t xMsgLen)
       }
       else
       {
-        if(DelayDiff(now, LastNotAckedTime) > RETRIES_TIMEOUT)
+        if(DelayDiff(now, LastNotAckedTime) > (xChaDest == etrPC ? RETRIES_TIMEOUT_PC : RETRIES_TIMEOUT_ACIS))
         {
           if(RetriesPacket > RETRIES_MAX)
           {
@@ -283,17 +286,17 @@ int8_t xSender(eTransChannels xChaDest, uint8_t* xMsgPtr, uint32_t xMsgLen)
 static inline void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen, eTransChannels xChaSrc, eTransChannels xChaDest) {
 
 	uint32_t aCount;
-  uint8_t data;
-  uint8_t sCount;
-	sGetterHandle * hDest = NULL;
+  uint8_t data, idis = 0;
+  uint32_t sCount;
+  sGetterHandle * hDest = NULL;
+  sGetterHandle * hSrc = NULL;
 	uint8_t header[8];
   for(int i = 0; i < sizeof(xHandles) / sizeof(xHandles[0]); i++)
   {
-    if(xHandles[i].xChannel == xChaSrc)
-    {
+    if(xHandles[i].xChannel == xChaDest)
       hDest = &xHandles[i];
-      break;
-    }
+    if(xHandles[i].xChannel == xChaSrc)
+      hSrc = &xHandles[i];
   }
 
 
@@ -309,16 +312,30 @@ static inline void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen
                 for (aCount = 0; aCount < xDataLen - 10; aCount++)
                 {
                   protPull(xFifo, &data);
-                  hDest->BufParser[aCount]=data;
+                  hSrc->BufParser[aCount] = data;
                 }
                 protPull(xFifo, &data);
                 protPull(xFifo, &data);
 
-                hDest->BufParser[aCount]=0;
+                hSrc->BufParser[aCount] = 0;
 
-                if(hDest) acker(hDest,xPacketId,xChaSrc);
+                if(hSrc) acker(hSrc,xPacketId,xChaSrc);
 
-                acis_parse_command(xChaSrc, hDest->BufParser, aCount);
+                for(int i = 0; i < 10; i++)
+                {
+                  if(hSrc->ReceivedPackets[i] == xPacketId)
+                  {
+                    idis = 1;
+                    break;
+                  }
+                }
+
+                if(!idis)
+                {
+                  hSrc->ReceivedPackets[hSrc->ReceivedPacketId] = xPacketId;
+                  if(++hSrc->ReceivedPacketId >= 10) hSrc->ReceivedPacketId = 0;
+                  acis_parse_command(xChaSrc, hSrc->BufParser, aCount);
+                }
 
             // Signal package
             }
@@ -349,8 +366,15 @@ static inline void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen
 
           if(hDest)
           {
-
             uint8_t handled = 0;
+
+            if(hDest->xChannel == etrPC)
+            {
+              handled = 0;
+              handled = 1;
+              handled = 0;
+            }
+
             if(!protIsSome(&hDest->xTxFifo))
             {
               taskENTER_CRITICAL();
@@ -373,13 +397,13 @@ static inline void parser(sProFIFO* xFifo, uint32_t xPacketId, uint32_t xDataLen
 
             if(!handled)
             {
-              xSemaphoreTake(xFifo->info.globallock, portMAX_DELAY);
+              xSemaphoreTake(hDest->xTxFifo.info.globallock, portMAX_DELAY);
               for (aCount = 0; aCount < sCount; aCount++)
               {
                 protPull(xFifo, &data);
                 protPush(&hDest->xTxFifo, &data);
               }
-              xSemaphoreGive(xFifo->info.globallock);
+              xSemaphoreGive(hDest->xTxFifo.info.globallock);
             }
 
             break;
@@ -443,6 +467,7 @@ static void Getter(sGetterHandle * handle)
   }
   else
   {
+
     if (protGetSize(xFifo) > 7)
     {
       if(lookByte(xFifo,0) == 0x55 && lookByte(xFifo,1) == 0x55)

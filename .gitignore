@@ -6,3 +6,6 @@
 /Debug/objects.mk
 /Debug/sources.mk
 /Debug/Core
+/*.launch
+/.settings
+/Debug
